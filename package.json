@@ -1,0 +1,30 @@
+{
+  "name": "tower-dominion",
+  "version": "1.0.0",
+  "description": "Battlefield-first web prototype inspired by the Tower Dominion reference material.",
+  "type": "module",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sayyidkhan/tower-dominion.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sayyidkhan/tower-dominion/issues"
+  },
+  "homepage": "https://github.com/sayyidkhan/tower-dominion#readme",
+  "dependencies": {
+    "pixi.js": "^8.18.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
+  }
+}

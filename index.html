@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tower Dominion Battlefield Study</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main id="app" aria-label="Battlefield UI prototype">
+      <section class="battlefield-shell">
+        <div class="vignette"></div>
+
+        <header class="top-hud" aria-label="Battlefield status">
+          <div class="commander-card">
+            <div class="portrait">
+              <div class="visor"></div>
+            </div>
+          </div>
+
+          <div class="resource-strip">
+            <div class="resource">
+              <span class="resource-icon supply"></span>
+              <strong>162</strong>
+              <small>[+100]</small>
+            </div>
+            <div class="resource">
+              <span class="resource-icon recon"></span>
+              <strong>25</strong>
+              <small>[+0]</small>
+            </div>
+            <div class="resource">
+              <span class="resource-icon tech"></span>
+              <strong>6</strong>
+            </div>
+          </div>
+
+          <div class="hq-status">
+            <span class="hq-icon"></span>
+            <div class="hq-readout">
+              <strong>1600/2050</strong>
+              <div class="hp-bar"><span></span></div>
+            </div>
+          </div>
+
+          <nav class="wave-controls" aria-label="Wave controls">
+            <button aria-label="Return to base" class="icon-button home"></button>
+            <button aria-label="Fast forward" class="icon-button play"></button>
+            <div class="wave-count">
+              <span></span>
+              <strong data-wave-number>9</strong><small data-wave-total>/25</small>
+              <i class="warning-icon"></i>
+            </div>
+            <button aria-label="Settings" class="icon-button gear"></button>
+          </nav>
+        </header>
+
+        <section id="battlefield" class="battlefield" aria-label="Isometric battlefield">
+          <canvas id="battlefield-canvas" aria-hidden="true"></canvas>
+        </section>
+
+        <div class="camera-controls" aria-label="Camera controls">
+          <button type="button" class="camera-button reset-camera" aria-label="Reset camera">⌂</button>
+          <button type="button" class="camera-button zoom-out" aria-label="Zoom out">−</button>
+          <button type="button" class="camera-button zoom-in" aria-label="Zoom in">+</button>
+        </div>
+
+        <section class="bottom-dock" aria-label="Blueprint inventory">
+          <div class="blueprint-card selected">
+            <span class="stock">2</span>
+            <div class="card-art tile-art"></div>
+            <span class="cost"><b>50</b><i class="supply-dot"></i></span>
+          </div>
+          <div class="blueprint-card disabled">
+            <span class="stock">1</span>
+            <div class="card-art turret-art"></div>
+            <span class="cost"><b>525</b><i class="tech-dot"></i></span>
+          </div>
+          <div class="blueprint-card">
+            <span class="stock">1</span>
+            <div class="card-art soldier-art"></div>
+            <span class="cost"><b>400</b><i class="tech-dot"></i></span>
+          </div>
+
+          <button class="send-wave">Send Wave <span>[Space]</span></button>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
