@@ -11,7 +11,7 @@ interface GameOverlayProps {
 }
 
 export function GameOverlay({ state, onStart, onRestart, onStartWave, onResume }: GameOverlayProps) {
-  if (state.phase === 'playing') return null;
+  if (state.phase === 'playing' || state.phase === 'wave_complete') return null;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
@@ -20,9 +20,6 @@ export function GameOverlay({ state, onStart, onRestart, onStartWave, onResume }
       )}
       {state.phase === 'paused' && (
         <PauseScreen state={state} onResume={onResume} onRestart={onRestart} />
-      )}
-      {state.phase === 'wave_complete' && (
-        <WaveCompleteScreen state={state} onNext={onStartWave} />
       )}
       {state.phase === 'game_over' && (
         <GameOverScreen state={state} onRestart={onRestart} />

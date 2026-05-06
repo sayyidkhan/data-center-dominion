@@ -1,27 +1,43 @@
 import type { TowerDef, EnemyDef, TowerType, EnemyType } from './types';
 
 export const CELL_SIZE = 36;
-export const GRID_COLS = 24;
+export const GRID_COLS = 42;        // full map width
 export const GRID_ROWS = 14;
-export const CANVAS_WIDTH = CELL_SIZE * GRID_COLS;
-export const CANVAS_HEIGHT = CELL_SIZE * GRID_ROWS;
+export const VIEWPORT_COLS = 24;    // visible columns at once
+export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
+export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
+export const MAP_W = CELL_SIZE * GRID_COLS;
+export const MAP_H = CELL_SIZE * GRID_ROWS;
+
+// Legacy aliases kept for compatibility
+export const CANVAS_WIDTH = VIEWPORT_W;
+export const CANVAS_HEIGHT = VIEWPORT_H;
 
 export const STARTING_GOLD = 200;
 export const STARTING_LIVES = 20;
 export const MAX_WAVES = 15;
 
-// The path is defined as grid coordinates [col, row]
+// Castle is at LEFT, gate faces RIGHT at row 7 (vertical center of 14-row grid).
+// Path snakes right-to-left. Last waypoint must be [3, 7] so enemies march
+// directly into the gate opening which is centered on row 7.
 export const PATH_WAYPOINTS: [number, number][] = [
-  [0, 2],
-  [4, 2],
-  [4, 6],
-  [8, 6],
-  [8, 2],
-  [13, 2],
-  [13, 10],
-  [18, 10],
-  [18, 6],
-  [23, 6],
+  [41, 2],   // spawn: top-right
+  [36, 2],
+  [36, 6],
+  [31, 6],
+  [31, 2],
+  [26, 2],
+  [26, 10],
+  [21, 10],
+  [21, 6],
+  [16, 6],
+  [16, 11],
+  [11, 11],
+  [11, 3],
+  [6,  3],
+  [6,  10],
+  [3,  10],
+  [3,  7],   // align with castle gate centre
 ];
 
 export const TOWER_DEFS: Record<TowerType, TowerDef> = {

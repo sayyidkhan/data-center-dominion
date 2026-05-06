@@ -1,7 +1,7 @@
 import type { GameState, Tower, Enemy, Projectile, Particle, Vec2, TowerType } from './types';
 import {
   CELL_SIZE, GRID_COLS, GRID_ROWS, STARTING_GOLD, STARTING_LIVES, MAX_WAVES,
-  TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS,
+  TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS, MAP_W, VIEWPORT_W,
 } from './constants';
 import { buildPath, buildPathGrid, distance, angleTo } from './pathfinding';
 
@@ -11,6 +11,7 @@ const uid = () => `id_${nextId++}`;
 export function createInitialState(): GameState {
   const path = buildPath();
   const grid = buildPathGrid(GRID_COLS, GRID_ROWS);
+  // Start camera showing the castle (left side of map)
   return {
     phase: 'menu',
     wave: 0,
@@ -34,6 +35,7 @@ export function createInitialState(): GameState {
     gameSpeed: 1,
     totalKills: 0,
     totalGoldEarned: STARTING_GOLD,
+    cameraX: 0,
   };
 }
 

@@ -65,31 +65,47 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
       </div>
 
       {/* Center: Wave info */}
-      <div className="flex flex-col items-center gap-1">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">Wave</span>
-          <span className="font-bold font-mono text-white text-sm">
-            {state.wave > 0 ? state.wave : '–'} / {MAX_WAVES}
-          </span>
-          {state.phase === 'playing' && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 bg-cyber-green rounded-full animate-pulse" />
-              <span className="text-[10px] text-cyber-green font-mono uppercase">Live</span>
+      <div className="flex flex-col items-center gap-1 min-w-[260px]">
+        {state.phase === 'wave_complete' ? (
+          /* Wave complete banner — lives in HUD, doesn't block map */
+          <div className="flex items-center gap-3 px-4 py-1.5 rounded-xl border border-cyber-green/50 bg-cyber-green/10"
+            style={{ boxShadow: '0 0 16px rgba(0,255,136,0.15)' }}>
+            <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping flex-shrink-0" />
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-black font-mono text-cyber-green uppercase tracking-widest">
+                {state.wave > 0 ? `Wave ${state.wave} Clear!` : 'Ready'}
+              </span>
+              {state.wave < MAX_WAVES && (
+                <span className="text-[10px] text-white/40 font-mono">
+                  Place towers · Press Space for Wave {state.wave + 1}
+                </span>
+              )}
             </div>
-          )}
-        </div>
-        {state.phase === 'playing' && state.waveSpawned > 0 && (
-          <div className="w-48 h-1 bg-dark-600 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-cyber-blue rounded-full transition-all duration-200"
-              style={{ width: `${wavePct}%`, boxShadow: '0 0 6px #00d4ff' }}
-            />
+            <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping flex-shrink-0" />
           </div>
-        )}
-        {state.phase === 'wave_complete' && (
-          <span className="text-[10px] text-cyber-green font-mono uppercase tracking-widest animate-pulse">
-            Wave Complete!
-          </span>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">Wave</span>
+              <span className="font-bold font-mono text-white text-sm">
+                {state.wave > 0 ? state.wave : '–'} / {MAX_WAVES}
+              </span>
+              {state.phase === 'playing' && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-cyber-green rounded-full animate-pulse" />
+                  <span className="text-[10px] text-cyber-green font-mono uppercase">Live</span>
+                </div>
+              )}
+            </div>
+            {state.phase === 'playing' && state.waveSpawned > 0 && (
+              <div className="w-48 h-1 bg-dark-600 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-cyber-blue rounded-full transition-all duration-200"
+                  style={{ width: `${wavePct}%`, boxShadow: '0 0 6px #00d4ff' }}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 

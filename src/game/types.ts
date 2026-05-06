@@ -92,6 +92,7 @@ export interface GameState {
   gameSpeed: number;
   totalKills: number;
   totalGoldEarned: number;
+  cameraX: number;  // pixel offset into the full map (left edge of viewport)
 }
 
 export interface EnemyConfig {
