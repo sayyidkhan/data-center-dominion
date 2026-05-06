@@ -1,0 +1,130 @@
+export type Vec2 = { x: number; y: number };
+
+export type TowerType = 'cannon' | 'laser' | 'frost' | 'tesla' | 'missile';
+
+export type EnemyType = 'grunt' | 'tank' | 'speeder' | 'boss' | 'swarm';
+
+export type ProjectileType = 'bullet' | 'laser_beam' | 'frost_bolt' | 'lightning' | 'missile';
+
+export interface Tower {
+  id: string;
+  type: TowerType;
+  gridX: number;
+  gridY: number;
+  x: number;
+  y: number;
+  level: number;
+  damage: number;
+  range: number;
+  fireRate: number; // shots per second
+  lastFired: number;
+  targetId: string | null;
+  angle: number;
+  kills: number;
+}
+
+export interface Enemy {
+  id: string;
+  type: EnemyType;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  speed: number;
+  reward: number;
+  armor: number;
+  pathIndex: number;
+  pathProgress: number; // 0..1 between current and next waypoint
+  slowFactor: number;
+  slowTimer: number;
+  isAlive: boolean;
+  isBoss: boolean;
+}
+
+export interface Projectile {
+  id: string;
+  type: ProjectileType;
+  x: number;
+  y: number;
+  targetId: string;
+  speed: number;
+  damage: number;
+  towerId: string;
+  splashRadius: number;
+  color: string;
+  size: number;
+  slowAmount: number;
+  slowDuration: number;
+}
+
+export interface Particle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+}
+
+export interface GameState {
+  phase: 'menu' | 'playing' | 'paused' | 'wave_complete' | 'game_over' | 'victory';
+  wave: number;
+  maxWaves: number;
+  lives: number;
+  maxLives: number;
+  gold: number;
+  score: number;
+  towers: Tower[];
+  enemies: Enemy[];
+  projectiles: Projectile[];
+  particles: Particle[];
+  path: Vec2[];
+  grid: CellType[][];
+  selectedTowerType: TowerType | null;
+  selectedTowerId: string | null;
+  waveEnemiesLeft: number;
+  waveSpawned: number;
+  spawnTimer: number;
+  enemiesInWave: EnemyConfig[];
+  gameSpeed: number;
+  totalKills: number;
+  totalGoldEarned: number;
+}
+
+export interface EnemyConfig {
+  type: EnemyType;
+  delay: number; // ms delay from wave start
+}
+
+export type CellType = 'empty' | 'path' | 'tower' | 'blocked';
+
+export interface TowerDef {
+  type: TowerType;
+  name: string;
+  cost: number;
+  damage: number;
+  range: number;
+  fireRate: number;
+  color: string;
+  accentColor: string;
+  description: string;
+  projectileType: ProjectileType;
+  splashRadius: number;
+  slowAmount: number;
+  slowDuration: number;
+  upgradeCost: number[];
+}
+
+export interface EnemyDef {
+  type: EnemyType;
+  hp: number;
+  speed: number;
+  reward: number;
+  armor: number;
+  color: string;
+  size: number;
+  isBoss: boolean;
+}
