@@ -260,165 +260,298 @@ function drawPath(ctx: CanvasRenderingContext2D, state: GameState, time: number)
 function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   const S = CELL_SIZE;
   const pathEnd = state.path[state.path.length - 1];
+  const pulse  = Math.sin(time * 2.1) * 0.18 + 0.82;
+  const pulse2 = Math.sin(time * 1.4 + 1.2) * 0.18 + 0.82;
 
-  // Anchor the intake bay to the path end so enemy routing stays unchanged.
-  const kH_ref = S * 1.5;
-  const gH_ref = S * 0.8;
-  const cx = pathEnd.x;
-  const cy = pathEnd.y - (kH_ref / 2 - gH_ref / 2);
-
-  const pulse = Math.sin(time * 2) * 0.2 + 0.8;
+  // ─── Layout anchors ────────────────────────────────────────────────────────
+  // The campus right edge aligns with the path's last cell so enemies walk into
+  // the loading bay.  The whole complex spans 3 cells wide × ~10 cells tall.
+  const campusW  = S * 3.0;
+  const campusH  = S * 9.5;
+  const campusR  = pathEnd.x + S * 0.5;          // right edge (bay protrudes to here)
+  const campusL  = campusR - campusW;
+  const campusT  = pathEnd.y - campusH / 2;
 
   ctx.save();
-  ctx.translate(cx, cy);
 
-  const w = S * 2.55;
-  const h = S * 1.85;
-  const x = -w / 2;
-  const y = -h / 2;
-  const bayW = S * 0.62;
-  const bayH = S * 0.78;
-  const bayX = -bayW / 2;
-  const bayY = y + h - bayH;
-  const parapetH = S * 0.22;
-
+  // ─── Outer campus glow ─────────────────────────────────────────────────────
   ctx.shadowColor = '#00d4ff';
-  ctx.shadowBlur = 18 * pulse;
-  ctx.fillStyle = 'rgba(0, 212, 255, 0.08)';
-  roundedRect(ctx, x - 8, y - 8, w + 16, h + 16, 6);
+  ctx.shadowBlur  = 24 * pulse;
+  ctx.fillStyle   = 'rgba(0,212,255,0.055)';
+  roundedRect(ctx, campusL - 10, campusT - 10, campusW + 20, campusH + 20, 10);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#09131f';
+  // ─── Perimeter fence / wall ────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(79,195,247,0.28)';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([4, 4]);
+  roundedRect(ctx, campusL - 6, campusT - 6, campusW + 12, campusH + 12, 8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ─── Helper: draw a server-rack panel ──────────────────────────────────────
+  const drawRackPanel = (px: number, py: number, pw: number, ph: number, rows: number, cols: number) => {
+    // chassis
+    ctx.fillStyle   = '#0b1520';
+    ctx.strokeStyle = 'rgba(79,195,247,0.45)';
+    ctx.lineWidth   = 1;
+    roundedRect(ctx, px, py, pw, ph, 3);
+    ctx.fill();
+    ctx.stroke();
+    // slot rows
+    const slotH = (ph - 6) / rows;
+    for (let r = 0; r < rows; r++) {
+      const sy = py + 3 + r * slotH;
+      ctx.fillStyle = '#060d16';
+      ctx.fillRect(px + 3, sy + 1, pw - 6, slotH - 2);
+      // LED dots per slot
+      for (let c = 0; c < cols; c++) {
+        const active = (r * cols + c + Math.floor(time * 0.7)) % (rows * cols) < Math.ceil(rows * cols * 0.65);
+        ctx.fillStyle   = active ? ((r + c) % 3 === 0 ? '#6aff9a' : '#5ecbff') : '#1a2a3a';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur  = active ? 5 * pulse : 0;
+        const dx = px + 5 + c * ((pw - 10) / (cols - 1 || 1));
+        ctx.beginPath();
+        ctx.arc(dx, sy + slotH / 2, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+  };
+
+  // ─── BUILDING A — Main server hall (top half of campus) ────────────────────
+  const hallW = campusW - 6;
+  const hallH = S * 4.2;
+  const hallX = campusL + 3;
+  const hallY = campusT + 3;
+
+  ctx.fillStyle   = '#08111e';
   ctx.strokeStyle = '#4fc3f7';
-  ctx.lineWidth = 1.5;
-  roundedRect(ctx, x, y, w, h, 4);
+  ctx.lineWidth   = 1.5;
+  roundedRect(ctx, hallX, hallY, hallW, hallH, 5);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(x, y, w, parapetH);
-  ctx.strokeStyle = 'rgba(79, 195, 247, 0.35)';
+  // Roof stripe
+  ctx.fillStyle = '#0d1b2a';
+  ctx.fillRect(hallX, hallY, hallW, S * 0.28);
+  ctx.strokeStyle = 'rgba(79,195,247,0.4)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x, y + parapetH);
-  ctx.lineTo(x + w, y + parapetH);
+  ctx.moveTo(hallX, hallY + S * 0.28);
+  ctx.lineTo(hallX + hallW, hallY + S * 0.28);
   ctx.stroke();
 
-  ctx.fillStyle = '#0e1b2c';
-  ctx.strokeStyle = 'rgba(79, 195, 247, 0.35)';
-  for (let i = 0; i < 5; i++) {
-    const colX = x + S * 0.18 + i * S * 0.43;
-    roundedRect(ctx, colX, y + S * 0.36, S * 0.3, S * 0.72, 2);
+  // Label stripe  "DATA CENTER"
+  ctx.fillStyle = 'rgba(0,212,255,0.75)';
+  ctx.font      = `bold ${Math.round(S * 0.19)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur  = 8 * pulse;
+  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.21);
+  ctx.shadowBlur = 0;
+
+  // Three rack panels inside hall
+  const rackW = (hallW - 16) / 3 - 4;
+  const rackH = hallH - S * 0.5 - 8;
+  for (let i = 0; i < 3; i++) {
+    drawRackPanel(hallX + 6 + i * (rackW + 4), hallY + S * 0.38, rackW, rackH, 7, 4);
+  }
+
+  // Rooftop HVAC units
+  for (let i = 0; i < 4; i++) {
+    const hx = hallX + 6 + i * (hallW - 12) / 3.5;
+    ctx.fillStyle   = '#111f2e';
+    ctx.strokeStyle = 'rgba(79,195,247,0.5)';
+    ctx.lineWidth   = 1;
+    roundedRect(ctx, hx, hallY - S * 0.38, S * 0.48, S * 0.35, 2);
     ctx.fill();
     ctx.stroke();
+    // fan circle
+    ctx.strokeStyle = `rgba(0,212,255,${0.3 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(hx + S * 0.24, hallY - S * 0.21, S * 0.12, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
-    for (let row = 0; row < 5; row++) {
-      const slotY = y + S * 0.42 + row * S * 0.12;
-      ctx.fillStyle = 'rgba(2, 8, 14, 0.85)';
-      ctx.fillRect(colX + 4, slotY, S * 0.3 - 8, 3);
-      ctx.fillStyle = (i + row) % 3 === 0 ? '#6aff9a' : '#5ecbff';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 5 * pulse;
+  // ─── BUILDING B — Cooling / UPS tower (bottom section, left half) ──────────
+  const coolW = hallW * 0.52;
+  const coolH = S * 3.4;
+  const coolX = campusL + 3;
+  const coolY = hallY + hallH + S * 0.3;
+
+  ctx.fillStyle   = '#060f1c';
+  ctx.strokeStyle = '#29b6f6';
+  ctx.lineWidth   = 1.5;
+  roundedRect(ctx, coolX, coolY, coolW, coolH, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = 'rgba(41,182,246,0.7)';
+  ctx.font      = `bold ${Math.round(S * 0.16)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#29b6f6';
+  ctx.shadowBlur  = 6 * pulse2;
+  ctx.fillText('COOLING', coolX + coolW / 2, coolY + S * 0.22);
+  ctx.shadowBlur = 0;
+
+  // Cooling towers — vertical cylinders
+  for (let i = 0; i < 3; i++) {
+    const tx = coolX + 10 + i * (coolW - 20) / 2;
+    const ty = coolY + S * 0.35;
+    const tw = (coolW - 28) / 3;
+    const th = coolH - S * 0.55;
+    ctx.fillStyle   = '#0a1828';
+    ctx.strokeStyle = 'rgba(41,182,246,0.55)';
+    ctx.lineWidth   = 1;
+    roundedRect(ctx, tx, ty, tw, th, 3);
+    ctx.fill();
+    ctx.stroke();
+    // steam rings
+    for (let r = 0; r < 3; r++) {
+      const alpha = ((time * 0.6 + r * 0.33) % 1);
+      ctx.strokeStyle = `rgba(128,222,234,${(1 - alpha) * 0.4 * pulse2})`;
+      ctx.lineWidth   = 1;
       ctx.beginPath();
-      ctx.arc(colX + S * 0.24, slotY + 1.5, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.arc(tx + tw / 2, ty + th * 0.25 - alpha * S * 0.5, tw * 0.28 + alpha * 4, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 
-  ctx.fillStyle = '#162234';
-  ctx.strokeStyle = 'rgba(79, 195, 247, 0.45)';
-  for (let i = 0; i < 6; i++) {
-    const windowX = x + S * 0.18 + i * S * 0.36;
-    const windowY = y + S * 1.22;
-    ctx.fillRect(windowX, windowY, S * 0.18, S * 0.16);
-    ctx.strokeRect(windowX, windowY, S * 0.18, S * 0.16);
-    if (i % 2 === 0) {
-      ctx.fillStyle = `rgba(100, 255, 218, ${0.22 + 0.16 * pulse})`;
-      ctx.fillRect(windowX + 2, windowY + 2, S * 0.18 - 4, S * 0.16 - 4);
-      ctx.fillStyle = '#162234';
+  // ─── BUILDING C — Power / generator block (bottom section, right half) ─────
+  const genW = hallW - coolW - 6;
+  const genH = coolH;
+  const genX = coolX + coolW + 6;
+  const genY = coolY;
+
+  ctx.fillStyle   = '#080f1a';
+  ctx.strokeStyle = '#ffcc00';
+  ctx.lineWidth   = 1.5;
+  roundedRect(ctx, genX, genY, genW, genH, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = 'rgba(255,204,0,0.75)';
+  ctx.font      = `bold ${Math.round(S * 0.16)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ffcc00';
+  ctx.shadowBlur  = 6 * pulse;
+  ctx.fillText('POWER', genX + genW / 2, genY + S * 0.22);
+  ctx.shadowBlur = 0;
+
+  // Generator units
+  for (let i = 0; i < 2; i++) {
+    const gx = genX + 6 + i * (genW / 2 - 4);
+    const gy = genY + S * 0.35;
+    const gw = genW / 2 - 10;
+    const gh = genH - S * 0.55;
+    ctx.fillStyle   = '#0c1822';
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)';
+    ctx.lineWidth   = 1;
+    roundedRect(ctx, gx, gy, gw, gh, 3);
+    ctx.fill();
+    ctx.stroke();
+    // status LED
+    const on = Math.sin(time * 3.1 + i * 1.5) > 0;
+    ctx.fillStyle   = on ? '#ffcc00' : '#3a2a00';
+    ctx.shadowColor = '#ffcc00';
+    ctx.shadowBlur  = on ? 8 * pulse : 0;
+    ctx.beginPath();
+    ctx.arc(gx + gw / 2, gy + gh * 0.35, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // waveform lines
+    ctx.strokeStyle = `rgba(255,204,0,${0.35 * pulse})`;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    for (let p = 0; p < gw - 10; p += 2) {
+      const wy = gy + gh * 0.62 + Math.sin((p / (gw - 10)) * Math.PI * 4 + time * 4 + i) * 4;
+      p === 0 ? ctx.moveTo(gx + 5 + p, wy) : ctx.lineTo(gx + 5 + p, wy);
     }
+    ctx.stroke();
   }
 
-  ctx.fillStyle = '#0a101a';
+  // ─── LOADING BAY — right edge, centred on pathEnd.y ────────────────────────
+  const bayW  = S * 0.7;
+  const bayH  = S * 1.1;
+  const bayX  = campusR - bayW;
+  const bayY  = pathEnd.y - bayH / 2;
+
+  // Bay recess in main body
+  ctx.fillStyle   = '#030810';
   ctx.strokeStyle = '#6bdcff';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth   = 1.5;
   roundedRect(ctx, bayX, bayY, bayW, bayH, 4);
   ctx.fill();
   ctx.stroke();
 
+  // Animated glow inside bay
   ctx.shadowColor = '#00d4ff';
-  ctx.shadowBlur = 14 * pulse;
-  ctx.fillStyle = `rgba(0, 212, 255, ${0.16 + 0.12 * pulse})`;
-  roundedRect(ctx, bayX + 5, bayY + 5, bayW - 10, bayH - 10, 3);
+  ctx.shadowBlur  = 18 * pulse;
+  ctx.fillStyle   = `rgba(0,212,255,${0.12 + 0.1 * pulse})`;
+  roundedRect(ctx, bayX + 4, bayY + 4, bayW - 8, bayH - 8, 3);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = 'rgba(128, 222, 234, 0.7)';
-  ctx.lineWidth = 1;
-  for (let b = 1; b < 4; b++) {
-    const bx = bayX + b * (bayW / 4);
+  // Horizontal scan bars in bay
+  ctx.strokeStyle = 'rgba(128,222,234,0.6)';
+  ctx.lineWidth   = 1;
+  for (let b = 1; b <= 4; b++) {
+    const by = bayY + b * (bayH / 5);
     ctx.beginPath();
-    ctx.moveTo(bx, bayY + 7);
-    ctx.lineTo(bx, bayY + bayH - 7);
+    ctx.moveTo(bayX + 6, by);
+    ctx.lineTo(bayX + bayW - 6, by);
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#64ffda';
-  ctx.shadowColor = '#64ffda';
-  ctx.shadowBlur = 8 * pulse;
-  ctx.beginPath();
-  ctx.arc(bayX + bayW / 2, bayY + bayH * 0.68, 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+  // Animated intake beam — pulses toward the path
+  const beamAlpha = (Math.sin(time * 4) * 0.3 + 0.5);
+  const grad = ctx.createLinearGradient(bayX + bayW, pathEnd.y, pathEnd.x + S, pathEnd.y);
+  grad.addColorStop(0,   `rgba(0,212,255,${beamAlpha * 0.6})`);
+  grad.addColorStop(1,   'rgba(0,212,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(bayX + bayW, pathEnd.y - 3, S * 0.8, 6);
 
-  ctx.fillStyle = '#111827';
-  ctx.strokeStyle = '#4fc3f7';
-  for (let i = 0; i < 3; i++) {
-    const ventX = x + S * 0.22 + i * S * 0.82;
-    roundedRect(ctx, ventX, y - S * 0.16, S * 0.44, S * 0.18, 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(128, 222, 234, 0.45)';
-    for (let line = 0; line < 3; line++) {
-      ctx.beginPath();
-      ctx.moveTo(ventX + 5, y - S * 0.13 + line * 4);
-      ctx.lineTo(ventX + S * 0.42 - 5, y - S * 0.13 + line * 4);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = '#4fc3f7';
-  }
+  // Bay warning chevrons on top & bottom
+  ctx.fillStyle = `rgba(255,204,0,${0.5 * pulse})`;
+  ctx.font      = `bold ${Math.round(S * 0.22)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('▲', bayX + bayW / 2, bayY + S * 0.22);
+  ctx.fillText('▼', bayX + bayW / 2, bayY + bayH - S * 0.04);
 
-  ctx.strokeStyle = 'rgba(107, 220, 255, 0.5)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + S * 0.18, y + h - S * 0.18);
-  ctx.lineTo(x + w - S * 0.18, y + h - S * 0.18);
-  ctx.stroke();
-
+  // ─── Antenna / comms mast on rooftop ────────────────────────────────────────
+  const antX = campusL + campusW * 0.72;
+  const antBase = campusT - 2;
   ctx.strokeStyle = '#6bdcff';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth   = 1.5;
   ctx.beginPath();
-  ctx.moveTo(0, y - S * 0.18);
-  ctx.lineTo(0, y - S * 0.52);
+  ctx.moveTo(antX, antBase);
+  ctx.lineTo(antX, antBase - S * 0.9);
   ctx.stroke();
-
-  for (let ring = 0; ring < 2; ring++) {
-    ctx.strokeStyle = `rgba(0, 212, 255, ${(0.45 - ring * 0.18) * pulse})`;
-    ctx.lineWidth = 1;
+  // cross-arms
+  ctx.lineWidth = 1;
+  for (let arm = 0; arm < 3; arm++) {
+    const ay = antBase - S * (0.3 + arm * 0.22);
+    const aw = S * (0.28 - arm * 0.06);
+    ctx.strokeStyle = `rgba(107,220,255,${0.6 - arm * 0.15})`;
     ctx.beginPath();
-    ctx.arc(0, y - S * 0.52, S * (0.18 + ring * 0.12), Math.PI * 1.15, Math.PI * 1.85);
+    ctx.moveTo(antX - aw, ay);
+    ctx.lineTo(antX + aw, ay);
     ctx.stroke();
   }
-
-  ctx.fillStyle = '#64ffda';
+  // beacon
+  ctx.fillStyle   = `rgba(100,255,218,${pulse})`;
   ctx.shadowColor = '#64ffda';
-  ctx.shadowBlur = 7 * pulse;
+  ctx.shadowBlur  = 10 * pulse;
   ctx.beginPath();
-  ctx.arc(0, y - S * 0.52, 3, 0, Math.PI * 2);
+  ctx.arc(antX, antBase - S * 0.9, 2.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
 
+  ctx.textAlign = 'left';
   ctx.restore();
 }
 

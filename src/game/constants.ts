@@ -27,7 +27,7 @@ export const STARTING_LIVES = 20;
 export const MAX_WAVES = 15;
 
 export const HERO_START = {
-  x: CELL_SIZE * 4.5,
+  x: CELL_SIZE * 5.5,
   y: CELL_SIZE * 7,
 };
 
@@ -38,27 +38,23 @@ export const HERO_STATS = {
   fireRate: 4,
 };
 
-// Castle is at LEFT, gate faces RIGHT at row 7 (vertical center of 14-row grid).
-// Path snakes right-to-left. Last waypoint must be [3, 7] so enemies march
-// directly into the gate opening which is centered on row 7.
+// Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
+// Path snakes then ends with a long straight horizontal run at row 7 into the bay.
 export const PATH_WAYPOINTS: [number, number][] = [
   [41, 2],   // spawn: top-right
   [36, 2],
-  [36, 6],
-  [31, 6],
-  [31, 2],
-  [26, 2],
-  [26, 10],
-  [21, 10],
-  [21, 6],
-  [16, 6],
-  [16, 11],
-  [11, 11],
-  [11, 3],
-  [6,  3],
-  [6,  10],
-  [3,  10],
-  [3,  7],   // align with data center intake bay
+  [36, 5],
+  [30, 5],
+  [30, 11],
+  [24, 11],
+  [24, 2],
+  [18, 2],
+  [18, 8],
+  [12, 8],
+  [12, 4],
+  [8,  4],
+  [8,  7],   // join the straight road at row 7
+  [3,  7],   // straight run → intake bay
 ];
 
 export const TOWER_DEFS: Record<TowerType, TowerDef> = {
