@@ -4,7 +4,7 @@ export type TowerType = 'cannon' | 'laser' | 'frost' | 'tesla' | 'missile';
 
 export type EnemyType = 'grunt' | 'tank' | 'speeder' | 'boss' | 'swarm';
 
-export type ProjectileType = 'bullet' | 'laser_beam' | 'frost_bolt' | 'lightning' | 'missile';
+export type ProjectileType = 'bullet' | 'laser_beam' | 'frost_bolt' | 'lightning' | 'missile' | 'machine_round';
 
 export interface Tower {
   id: string;
@@ -21,6 +21,22 @@ export interface Tower {
   targetId: string | null;
   beamTargetId: string | null;
   laserCycleMs: number;
+  angle: number;
+  kills: number;
+}
+
+export interface Hero {
+  id: string;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  speed: number;
+  damage: number;
+  range: number;
+  fireRate: number;
+  lastFired: number;
+  targetId: string | null;
   angle: number;
   kills: number;
 }
@@ -103,6 +119,7 @@ export interface GameState {
   gold: number;
   score: number;
   towers: Tower[];
+  hero: Hero;
   enemies: Enemy[];
   projectiles: Projectile[];
   particles: Particle[];

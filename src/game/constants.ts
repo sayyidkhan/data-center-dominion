@@ -3,11 +3,20 @@ import type { TowerDef, EnemyDef, TowerType, EnemyType } from './types';
 export const CELL_SIZE = 36;
 export const GRID_COLS = 42;        // full map width
 export const GRID_ROWS = 14;
-export const VIEWPORT_COLS = 24;    // visible columns at once
+export const VIEWPORT_COLS = 32;    // visible columns at once
 export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
 export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
 export const MAP_W = CELL_SIZE * GRID_COLS;
 export const MAP_H = CELL_SIZE * GRID_ROWS;
+
+/** Fixed HUD strip height — room for readable labels + stats + controls. */
+export const HUD_SLOT_H = 116;
+
+/** Bottom shop / mecha panel height (fixed shell; menu uses empty placeholder). */
+export const FOOTER_H = 292;
+
+/** Min width for footer `1fr 2fr 1fr` grid (hero | shop | briefing) before horizontal scroll. */
+export const FOOTER_GRID_MIN_W = 1120;
 
 // Legacy aliases kept for compatibility
 export const CANVAS_WIDTH = VIEWPORT_W;
@@ -17,27 +26,35 @@ export const STARTING_GOLD = 200;
 export const STARTING_LIVES = 20;
 export const MAX_WAVES = 15;
 
-// Castle is at LEFT, gate faces RIGHT at row 7 (vertical center of 14-row grid).
-// Path snakes right-to-left. Last waypoint must be [3, 7] so enemies march
-// directly into the gate opening which is centered on row 7.
+export const HERO_START = {
+  x: CELL_SIZE * 5.5,
+  y: CELL_SIZE * 7,
+};
+
+export const HERO_STATS = {
+  speed: 145,
+  damage: 5,
+  range: 3.75,
+  fireRate: 4,
+};
+
+// Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
+// Path snakes then ends with a long straight horizontal run at row 7 into the bay.
 export const PATH_WAYPOINTS: [number, number][] = [
   [41, 2],   // spawn: top-right
   [36, 2],
-  [36, 6],
-  [31, 6],
-  [31, 2],
-  [26, 2],
-  [26, 10],
-  [21, 10],
-  [21, 6],
-  [16, 6],
-  [16, 11],
-  [11, 11],
-  [11, 3],
-  [6,  3],
-  [6,  10],
-  [3,  10],
-  [3,  7],   // align with data center intake bay
+  [36, 5],
+  [30, 5],
+  [30, 11],
+  [24, 11],
+  [24, 2],
+  [18, 2],
+  [18, 8],
+  [12, 8],
+  [12, 4],
+  [8,  4],
+  [8,  7],   // join the straight road at row 7
+  [3,  7],   // straight run → intake bay
 ];
 
 export const TOWER_DEFS: Record<TowerType, TowerDef> = {

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { GameState } from '../game/types';
 import { MAX_WAVES } from '../game/constants';
+import { formatCompactCount } from '../formatCompactCount';
 
 interface GameOverlayProps {
   state: GameState;
@@ -34,15 +35,15 @@ export function GameOverlay({ state, onStart, onRestart, onStartWave, onResume }
 function MenuScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="pointer-events-auto text-center flex flex-col items-center gap-6 p-8">
-      {/* Scanline bg effect */}
-      <div className="absolute inset-0 bg-dark-900/70 backdrop-blur-sm" />
+      {/* Darken center — canvas menu backdrop stays sharp (no backdrop-blur on pixel canvas). */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-dark-900/40 via-dark-900/70 to-dark-900/90" />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
         {/* Title */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-px bg-cyber-blue/60" />
-            <span className="text-[10px] text-cyber-blue/60 font-mono uppercase tracking-widest">2026 Edition</span>
+            <span className="text-xs text-cyber-blue/60 font-mono uppercase tracking-widest">2026 Edition</span>
             <div className="w-8 h-px bg-cyber-blue/60" />
           </div>
           <h1
@@ -67,25 +68,25 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
         </div>
 
         {/* Subtitle */}
-        <p className="text-white/40 font-mono text-sm max-w-xs leading-relaxed">
+        <p className="max-w-md text-base leading-relaxed text-white/45 font-mono">
           Build towers. Defend the data center.<br />Survive {MAX_WAVES} waves of relentless intruders.
         </p>
 
         {/* How to play */}
-        <div className="bg-dark-800/80 border border-cyber-blue/20 rounded-2xl p-4 max-w-sm w-full">
-          <p className="text-[10px] text-cyber-blue/60 font-mono uppercase tracking-widest mb-3">Quick Guide</p>
-          <div className="flex flex-col gap-2 text-left">
+        <div className="max-w-md w-full rounded-2xl border border-cyber-blue/20 bg-dark-800/80 p-5">
+          <p className="mb-3 font-mono text-xs uppercase tracking-widest text-cyber-blue/70">Quick Guide</p>
+          <div className="flex flex-col gap-3 text-left">
             {[
               ['1', 'Select a tower from the shop panel'],
               ['2', 'Click an empty grid cell to place it'],
               ['3', 'Press Start Wave or [Space] to begin'],
               ['4', 'Upgrade placed towers for more power'],
             ].map(([n, t]) => (
-              <div key={n} className="flex items-start gap-2.5">
-                <div className="w-4 h-4 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-[9px] text-cyber-blue font-bold font-mono">{n}</span>
+              <div key={n} className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyber-blue/50 bg-cyber-blue/20">
+                  <span className="font-mono text-xs font-bold text-cyber-blue">{n}</span>
                 </div>
-                <span className="text-[11px] text-white/60 font-mono">{t}</span>
+                <span className="font-mono text-sm text-white/65">{t}</span>
               </div>
             ))}
           </div>
@@ -103,7 +104,7 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
           Launch
         </button>
 
-        <p className="text-white/20 text-[10px] font-mono">Press [Space] to start the first wave</p>
+        <p className="font-mono text-xs text-white/30">Press [Space] to start the first wave</p>
       </div>
     </div>
   );
@@ -117,9 +118,9 @@ function PauseScreen({ state, onResume, onRestart }: { state: GameState; onResum
         <h2 className="text-2xl font-black text-white uppercase tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>Paused</h2>
         <div className="flex flex-col gap-2 text-center">
           <StatLine label="Wave" value={`${state.wave} / ${MAX_WAVES}`} />
-          <StatLine label="Score" value={state.score.toLocaleString()} />
-          <StatLine label="Kills" value={state.totalKills} />
-          <StatLine label="Gold Earned" value={state.totalGoldEarned} />
+          <StatLine label="Score" value={formatCompactCount(state.score)} />
+          <StatLine label="Kills" value={formatCompactCount(state.totalKills)} />
+          <StatLine label="Gold Earned" value={formatCompactCount(state.totalGoldEarned)} />
         </div>
         <div className="flex gap-3">
           <button onClick={onResume} className="px-6 py-2.5 bg-cyber-blue/20 border border-cyber-blue/60 rounded-xl text-cyber-blue font-bold font-mono text-sm hover:bg-cyber-blue/30 transition-all">
@@ -167,8 +168,8 @@ function GameOverScreen({ state, onRestart }: { state: GameState; onRestart: () 
         </h2>
         <div className="flex flex-col gap-2 text-center">
           <StatLine label="Reached Wave" value={`${state.wave} / ${MAX_WAVES}`} />
-          <StatLine label="Final Score" value={state.score.toLocaleString()} />
-          <StatLine label="Total Kills" value={state.totalKills} />
+          <StatLine label="Final Score" value={formatCompactCount(state.score)} />
+          <StatLine label="Total Kills" value={formatCompactCount(state.totalKills)} />
           <StatLine label="Towers Built" value={state.towers.length} />
         </div>
         <button
@@ -194,9 +195,9 @@ function VictoryScreen({ state, onRestart }: { state: GameState; onRestart: () =
         </h2>
         <p className="text-white/50 text-sm font-mono">All {MAX_WAVES} waves defeated!</p>
         <div className="flex flex-col gap-2 text-center">
-          <StatLine label="Final Score" value={state.score.toLocaleString()} />
-          <StatLine label="Total Kills" value={state.totalKills} />
-          <StatLine label="Gold Earned" value={state.totalGoldEarned} />
+          <StatLine label="Final Score" value={formatCompactCount(state.score)} />
+          <StatLine label="Total Kills" value={formatCompactCount(state.totalKills)} />
+          <StatLine label="Gold Earned" value={formatCompactCount(state.totalGoldEarned)} />
         </div>
         <button
           onClick={onRestart}
@@ -213,8 +214,8 @@ function VictoryScreen({ state, onRestart }: { state: GameState; onRestart: () =
 function StatLine({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between gap-8">
-      <span className="text-xs text-white/40 font-mono">{label}</span>
-      <span className="text-sm font-bold text-white font-mono">{value}</span>
+      <span className="text-sm text-white/45 font-mono">{label}</span>
+      <span className="text-base font-bold text-white font-mono">{value}</span>
     </div>
   );
 }
