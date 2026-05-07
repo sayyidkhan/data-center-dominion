@@ -52,7 +52,7 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
               textShadow: '0 0 40px rgba(0,212,255,0.6), 0 0 80px rgba(0,212,255,0.2)',
             }}
           >
-            TOWER
+            DATA CENTER
           </h1>
           <h1
             className="text-6xl font-black uppercase tracking-tight"
@@ -68,7 +68,7 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
 
         {/* Subtitle */}
         <p className="text-white/40 font-mono text-sm max-w-xs leading-relaxed">
-          Build towers. Defend your base.<br />Survive {MAX_WAVES} waves of relentless enemies.
+          Build towers. Defend the data center.<br />Survive {MAX_WAVES} waves of relentless intruders.
         </p>
 
         {/* How to play */}

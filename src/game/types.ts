@@ -19,6 +19,8 @@ export interface Tower {
   fireRate: number; // shots per second
   lastFired: number;
   targetId: string | null;
+  beamTargetId: string | null;
+  laserCycleMs: number;
   angle: number;
   kills: number;
 }
@@ -37,6 +39,11 @@ export interface Enemy {
   pathProgress: number; // 0..1 between current and next waypoint
   slowFactor: number;
   slowTimer: number;
+  frozenTimer: number;
+  armorBreakTimer: number;
+  armorBreakAmount: number;
+  exposedTimer: number;
+  exposedMultiplier: number;
   isAlive: boolean;
   isBoss: boolean;
 }
@@ -69,6 +76,24 @@ export interface Particle {
   size: number;
 }
 
+export type VisualEffect =
+  | {
+      id: string;
+      type: 'frost_blast';
+      x: number;
+      y: number;
+      radius: number;
+      life: number;
+      maxLife: number;
+    }
+  | {
+      id: string;
+      type: 'lightning_zap';
+      points: Vec2[];
+      life: number;
+      maxLife: number;
+    };
+
 export interface GameState {
   phase: 'menu' | 'playing' | 'paused' | 'wave_complete' | 'game_over' | 'victory';
   wave: number;
@@ -81,6 +106,7 @@ export interface GameState {
   enemies: Enemy[];
   projectiles: Projectile[];
   particles: Particle[];
+  effects: VisualEffect[];
   path: Vec2[];
   grid: CellType[][];
   selectedTowerType: TowerType | null;

@@ -37,7 +37,7 @@ export const PATH_WAYPOINTS: [number, number][] = [
   [6,  3],
   [6,  10],
   [3,  10],
-  [3,  7],   // align with castle gate centre
+  [3,  7],   // align with data center intake bay
 ];
 
 export const TOWER_DEFS: Record<TowerType, TowerDef> = {
@@ -50,7 +50,7 @@ export const TOWER_DEFS: Record<TowerType, TowerDef> = {
     fireRate: 1.2,
     color: '#4a7fa5',
     accentColor: '#00d4ff',
-    description: 'Balanced tower. Moderate damage, medium range.',
+    description: 'Debuff tower. Cracks armor and exposes priority targets.',
     projectileType: 'bullet',
     splashRadius: 0,
     slowAmount: 0,
@@ -79,12 +79,12 @@ export const TOWER_DEFS: Record<TowerType, TowerDef> = {
     cost: 100,
     damage: 20,
     range: 3,
-    fireRate: 1.5,
+    fireRate: 0.6,
     color: '#29b6f6',
     accentColor: '#80deea',
     description: 'Slows enemies. Essential for crowd control.',
     projectileType: 'frost_bolt',
-    splashRadius: 0,
+    splashRadius: 2.25,
     slowAmount: 0.4,
     slowDuration: 2000,
     upgradeCost: [130, 210],

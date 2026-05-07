@@ -18,6 +18,30 @@ const TOWER_ICONS: Record<TowerType, string> = {
   missile: '🚀',
 };
 
+function getTowerTraitLines(type: TowerType, level = 1): string[] {
+  switch (type) {
+    case 'cannon': {
+      const chance = [0, 35, 50, 65][level];
+      const armorBreak = [0, 3, 6, 10][level];
+      const exposed = [0, 15, 25, 40][level];
+      const duration = [0, 3, 4, 5][level];
+      return [
+        `${chance}% chance to apply a debuff on hit.`,
+        `Armor crack: -${armorBreak} armor for ${duration}s.`,
+        `Expose: +${exposed}% damage taken for ${duration}s.`,
+      ];
+    }
+    case 'frost':
+      return ['Large AoE slow.', '20% chance to freeze for 1s before slowing.'];
+    case 'laser':
+      return ['Sustained beam DPS.', 'Fires for 2s, cools for 1s.'];
+    case 'tesla':
+      return [`Chain zap with ${level + 1} hops.`, 'Can bounce back if no fresh creep is nearby.'];
+    case 'missile':
+      return ['Heavy splash damage.', 'Slow fire rate, best against clustered creeps.'];
+  }
+}
+
 export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect }: TowerShopProps) {
   const selectedTower = state.towers.find(t => t.id === state.selectedTowerId);
 
@@ -89,6 +113,7 @@ export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect 
               return (
                 <>
                   <p className="text-[11px] text-white/60 font-mono mb-2">{def.description}</p>
+                  <TraitList lines={getTowerTraitLines(state.selectedTowerType)} />
                   <div className="grid grid-cols-2 gap-y-1">
                     <StatRow label="DMG" value={def.damage} />
                     <StatRow label="RNG" value={`${def.range.toFixed(1)} cells`} />
@@ -145,6 +170,8 @@ export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect 
                     <StatRow label="Rate" value={`${selectedTower.fireRate.toFixed(1)}/s`} />
                     <StatRow label="DPS" value={(selectedTower.damage * selectedTower.fireRate).toFixed(0)} />
                   </div>
+
+                  <TraitList lines={getTowerTraitLines(selectedTower.type, selectedTower.level)} className="mt-3" />
                 </>
               );
             })()}
@@ -197,7 +224,7 @@ export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect 
       {/* Empty state */}
       {!state.selectedTowerType && !selectedTower && (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4 text-center">
-          <div className="text-3xl opacity-20">🏰</div>
+          <div className="text-3xl opacity-20">▦</div>
           <p className="text-[11px] text-white/25 font-mono">Select a tower type to place,<br />or click a placed tower</p>
         </div>
       )}
@@ -218,6 +245,18 @@ export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect 
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function TraitList({ lines, className = '' }: { lines: string[]; className?: string }) {
+  return (
+    <div className={`space-y-1 border-t border-white/10 pt-2 mb-2 ${className}`}>
+      {lines.map(line => (
+        <p key={line} className="text-[10px] leading-snug text-white/45 font-mono">
+          {line}
+        </p>
+      ))}
     </div>
   );
 }
