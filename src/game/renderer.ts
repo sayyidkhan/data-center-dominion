@@ -633,19 +633,31 @@ function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: numbe
     drawTowerShape(ctx, tower.type, def.color, def.accentColor, tower.level, time);
     ctx.restore();
 
-    // Level dots
-    ctx.save();
-    ctx.translate(x, y);
-    for (let l = 0; l < tower.level; l++) {
+    // Level badge — only shown when level > 1
+    if (tower.level > 1) {
+      ctx.save();
+      ctx.translate(x, y);
+      const label = `${tower.level}`;
+      const bw = 20;
+      const bh = 20;
+      const bx = CELL_SIZE / 2 - bw - 1;
+      const by = -CELL_SIZE / 2 + 1;
+      // background pill
       ctx.fillStyle = def.accentColor;
       ctx.shadowColor = def.accentColor;
-      ctx.shadowBlur = 6;
-      ctx.beginPath();
-      ctx.arc(-6 + l * 6, CELL_SIZE / 2 - 7, 2.5, 0, Math.PI * 2);
+      ctx.shadowBlur = 10;
+      roundedRect(ctx, bx, by, bw, bh, 5);
       ctx.fill();
+      ctx.shadowBlur = 0;
+      // number
+      ctx.fillStyle = '#050a12';
+      ctx.font = `bold 12px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, bx + bw / 2, by + bh / 2 + 0.5);
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
     }
-    ctx.shadowBlur = 0;
-    ctx.restore();
   }
 }
 

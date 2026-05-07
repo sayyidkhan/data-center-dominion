@@ -253,17 +253,32 @@ function SelectedTowerPanel({ state, tower, onUpgrade, onSell, onDeselect }: {
         </span>
       </div>
 
-      <div className="shrink-0 border-b border-white/10 pb-2">
-        <div className="grid grid-cols-2 grid-rows-2 gap-1.5 [grid-template-rows:repeat(2,minmax(min-content,max-content))]">
-          <InspectMiniStat label="Damage" value={tower.damage} />
-          <InspectMiniStat label="Range" value={`${(tower.range / CELL_SIZE).toFixed(1)}c`} />
-          <InspectMiniStat label="Rate" value={`${tower.fireRate.toFixed(1)}/s`} />
-          <InspectMiniStat label="DPS" value={formatCompactCount(Math.round(tower.damage * tower.fireRate))} />
-        </div>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] pr-0.5">
-        <TraitList lines={getTowerTraitLines(tower.type, tower.level)} noTopRule />
+        {/* Description */}
+        {def.description && (
+          <p className="mb-2 font-mono text-xs leading-snug text-white/70">
+            {def.description}
+          </p>
+        )}
+
+        {/* Trait lines */}
+        <div className="mb-2.5 space-y-1">
+          {getTowerTraitLines(tower.type, tower.level).map(line => (
+            <p key={line} className="font-mono text-xs leading-snug text-white/50">
+              ◇ {line}
+            </p>
+          ))}
+        </div>
+
+        {/* Stats */}
+        <div className="border-t border-white/10 pt-2">
+          <div className="grid grid-cols-2 grid-rows-2 gap-1.5 [grid-template-rows:repeat(2,minmax(min-content,max-content))]">
+            <InspectMiniStat label="Damage" value={tower.damage} />
+            <InspectMiniStat label="Range" value={`${(tower.range / CELL_SIZE).toFixed(1)}c`} />
+            <InspectMiniStat label="Rate" value={`${tower.fireRate.toFixed(1)}/s`} />
+            <InspectMiniStat label="DPS" value={formatCompactCount(Math.round(tower.damage * tower.fireRate))} />
+          </div>
+        </div>
       </div>
 
       <div className="shrink-0 space-y-1.5 border-t border-white/10 pt-2">
