@@ -3,11 +3,17 @@ import type { TowerDef, EnemyDef, TowerType, EnemyType } from './types';
 export const CELL_SIZE = 36;
 export const GRID_COLS = 42;        // full map width
 export const GRID_ROWS = 14;
-export const VIEWPORT_COLS = 24;    // visible columns at once
+export const VIEWPORT_COLS = 32;    // visible columns at once
 export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
 export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
 export const MAP_W = CELL_SIZE * GRID_COLS;
 export const MAP_H = CELL_SIZE * GRID_ROWS;
+
+/** Fixed HUD strip height so menu and in-game chrome share the same outer size. */
+export const HUD_SLOT_H = 76;
+
+/** Bottom shop / mecha panel height (fixed shell; menu uses empty placeholder). */
+export const FOOTER_H = 210;
 
 // Legacy aliases kept for compatibility
 export const CANVAS_WIDTH = VIEWPORT_W;
@@ -16,6 +22,18 @@ export const CANVAS_HEIGHT = VIEWPORT_H;
 export const STARTING_GOLD = 200;
 export const STARTING_LIVES = 20;
 export const MAX_WAVES = 15;
+
+export const HERO_START = {
+  x: CELL_SIZE * 4.5,
+  y: CELL_SIZE * 7,
+};
+
+export const HERO_STATS = {
+  speed: 145,
+  damage: 5,
+  range: 3.75,
+  fireRate: 4,
+};
 
 // Castle is at LEFT, gate faces RIGHT at row 7 (vertical center of 14-row grid).
 // Path snakes right-to-left. Last waypoint must be [3, 7] so enemies march

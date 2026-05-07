@@ -1,6 +1,6 @@
 import React from 'react';
 import type { GameState } from '../game/types';
-import { MAX_WAVES } from '../game/constants';
+import { ENEMY_DEFS, MAX_WAVES, WAVE_DEFS } from '../game/constants';
 
 interface HUDProps {
   state: GameState;
@@ -13,12 +13,15 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
   const wavePct = state.waveSpawned > 0
     ? ((state.waveSpawned / (state.enemiesInWave.length || 1)) * 100)
     : 0;
+  const nextWaveIdx = Math.min(state.wave, MAX_WAVES - 1);
+  const nextWave = WAVE_DEFS[nextWaveIdx];
+  const totalEnemies = nextWave?.enemies.reduce((s, g) => s + g.count, 0) ?? 0;
 
   const livesPct = (state.lives / state.maxLives) * 100;
   const livesColor = livesPct > 60 ? '#00ff88' : livesPct > 30 ? '#ffcc00' : '#ff4444';
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-dark-800 border-b border-cyber-blue/20 select-none">
+    <div className="flex h-full items-center justify-between px-4 py-2 bg-dark-800 select-none overflow-hidden">
       {/* Left: Stats */}
       <div className="flex items-center gap-6">
         {/* Lives */}
@@ -65,48 +68,57 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
       </div>
 
       {/* Center: Wave info */}
-      <div className="flex flex-col items-center gap-1 min-w-[260px]">
-        {state.phase === 'wave_complete' ? (
-          /* Wave complete banner — lives in HUD, doesn't block map */
-          <div className="flex items-center gap-3 px-4 py-1.5 rounded-xl border border-cyber-green/50 bg-cyber-green/10"
-            style={{ boxShadow: '0 0 16px rgba(0,255,136,0.15)' }}>
-            <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping flex-shrink-0" />
-            <div className="flex flex-col items-center">
+      <div className="min-w-[440px] max-w-[560px] rounded-xl border border-cyber-green/40 bg-cyber-green/10 px-4 py-2"
+        style={{ boxShadow: '0 0 16px rgba(0,255,136,0.12)' }}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${state.phase === 'playing' ? 'bg-cyber-green animate-pulse' : 'bg-cyber-green/70'}`} />
               <span className="text-xs font-black font-mono text-cyber-green uppercase tracking-widest">
-                {state.wave > 0 ? `Wave ${state.wave} Clear!` : 'Ready'}
+                {state.phase === 'playing'
+                  ? `Wave ${state.wave} Live`
+                  : state.wave > 0 && state.phase === 'wave_complete'
+                    ? `Wave ${state.wave} Clear`
+                    : 'Ready'}
               </span>
-              {state.wave < MAX_WAVES && (
-                <span className="text-[10px] text-white/40 font-mono">
-                  Place towers · Press Space for Wave {state.wave + 1}
-                </span>
-              )}
             </div>
-            <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping flex-shrink-0" />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">Wave</span>
-              <span className="font-bold font-mono text-white text-sm">
-                {state.wave > 0 ? state.wave : '–'} / {MAX_WAVES}
-              </span>
-              {state.phase === 'playing' && (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-cyber-green rounded-full animate-pulse" />
-                  <span className="text-[10px] text-cyber-green font-mono uppercase">Live</span>
-                </div>
-              )}
-            </div>
-            {state.phase === 'playing' && state.waveSpawned > 0 && (
-              <div className="w-48 h-1 bg-dark-600 rounded-full overflow-hidden">
+
+            {state.phase === 'playing' && state.waveSpawned > 0 ? (
+              <div className="mt-1 w-48 h-1 bg-dark-600 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-cyber-blue rounded-full transition-all duration-200"
                   style={{ width: `${wavePct}%`, boxShadow: '0 0 6px #00d4ff' }}
                 />
               </div>
+            ) : (
+              <div className="mt-1 flex items-center gap-2 overflow-hidden">
+                <span className="text-[10px] text-white/35 font-mono flex-shrink-0">
+                  Next Wave {nextWaveIdx + 1}
+                </span>
+                {nextWave?.enemies.map(group => {
+                  const def = ENEMY_DEFS[group.type];
+                  return (
+                    <div key={group.type} className="flex items-center gap-1.5 flex-shrink-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ background: def.color, boxShadow: `0 0 4px ${def.color}` }}
+                      />
+                      <span className="text-[10px] text-white/65 font-mono capitalize">{group.type}</span>
+                      <span className="text-[10px] text-white/35 font-mono">x{group.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-          </>
-        )}
+          </div>
+
+          {nextWave && state.phase !== 'playing' && (
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="text-[10px] font-bold font-mono text-white/55">{totalEnemies} total</span>
+              <span className="text-[10px] font-bold font-mono text-yellow-300/80">◆ +{nextWave.goldBonus}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right: Controls */}

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { GameState, TowerType } from '../game/types';
-import { TOWER_DEFS } from '../game/constants';
+import { CELL_SIZE, TOWER_DEFS } from '../game/constants';
 
 interface TowerShopProps {
   state: GameState;
@@ -10,13 +10,8 @@ interface TowerShopProps {
   onDeselect: () => void;
 }
 
-const TOWER_ICONS: Record<TowerType, string> = {
-  cannon: '🔫',
-  laser: '⚡',
-  frost: '❄️',
-  tesla: '⚡',
-  missile: '🚀',
-};
+/** Shop strip + briefing column + gap; footer must never shrink narrower or cards clip entirely. */
+const SHOP_SHELL_MIN_W = 520 + 220 + 12;
 
 function getTowerTraitLines(type: TowerType, level = 1): string[] {
   switch (type) {
@@ -44,215 +39,239 @@ function getTowerTraitLines(type: TowerType, level = 1): string[] {
 
 export function TowerShop({ state, onSelectTower, onUpgrade, onSell, onDeselect }: TowerShopProps) {
   const selectedTower = state.towers.find(t => t.id === state.selectedTowerId);
+  const selectedType = state.selectedTowerType;
 
   return (
-    <div className="w-64 bg-dark-800 border-l border-cyber-blue/20 flex flex-col overflow-hidden select-none">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-cyber-blue/20">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-cyber-blue rounded-full shadow-cyber" />
-          <span className="text-[11px] text-white/40 uppercase tracking-widest font-mono">Tower Shop</span>
-        </div>
-      </div>
-
-      {/* Tower grid */}
-      <div className="p-3 grid grid-cols-2 gap-2 border-b border-cyber-blue/10">
-        {(Object.keys(TOWER_DEFS) as TowerType[]).map(type => {
-          const def = TOWER_DEFS[type];
-          const isSelected = state.selectedTowerType === type;
-          const canAfford = state.gold >= def.cost;
-
-          return (
-            <button
-              key={type}
-              onClick={() => onSelectTower(isSelected ? null : type)}
-              className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all duration-200 ${
-                isSelected
-                  ? 'border-cyber-blue/80 bg-cyber-blue/15 shadow-cyber'
-                  : canAfford
-                    ? 'border-white/10 bg-dark-700 hover:border-white/30 hover:bg-dark-600'
-                    : 'border-white/5 bg-dark-700 opacity-40 cursor-not-allowed'
-              }`}
-              disabled={!canAfford && !isSelected}
-            >
-              {/* Tower preview */}
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-lg border"
-                style={{
-                  background: `${def.color}22`,
-                  borderColor: `${def.accentColor}44`,
-                  boxShadow: isSelected ? `0 0 12px ${def.accentColor}44` : 'none',
-                }}
-              >
-                <TowerSvgIcon type={type} color={def.accentColor} />
-              </div>
-
-              <span className="text-xs font-bold font-mono text-white/90">{def.name}</span>
-
-              <div className="flex items-center gap-1">
-                <span className="text-yellow-400 text-[10px]">◆</span>
-                <span className={`text-[11px] font-mono font-bold ${canAfford ? 'text-yellow-300' : 'text-red-400'}`}>
-                  {def.cost}
-                </span>
-              </div>
-
-              {isSelected && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyber-blue rounded-full shadow-cyber" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tower description */}
-      {state.selectedTowerType && !state.selectedTowerId && (
-        <div className="p-3 border-b border-cyber-blue/10">
-          <div className="bg-dark-700 rounded-xl p-3 border border-cyber-blue/20">
-            {(() => {
-              const def = TOWER_DEFS[state.selectedTowerType];
-              return (
-                <>
-                  <p className="text-[11px] text-white/60 font-mono mb-2">{def.description}</p>
-                  <TraitList lines={getTowerTraitLines(state.selectedTowerType)} />
-                  <div className="grid grid-cols-2 gap-y-1">
-                    <StatRow label="DMG" value={def.damage} />
-                    <StatRow label="RNG" value={`${def.range.toFixed(1)} cells`} />
-                    <StatRow label="DPS" value={(def.damage * def.fireRate).toFixed(0)} />
-                    <StatRow label="Rate" value={`${def.fireRate}/s`} />
-                  </div>
-                </>
-              );
-            })()}
+    <div
+      className="flex h-full min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden select-none [scrollbar-width:thin]"
+      style={{ minWidth: SHOP_SHELL_MIN_W }}
+    >
+      <div className="flex h-full min-h-0 w-[520px] shrink-0 flex-col rounded-xl border border-cyber-blue/20 bg-dark-900/70 p-3">
+        <div className="mb-2 flex shrink-0 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-cyber-blue rounded-full shadow-cyber" />
+            <span className="text-[11px] text-white/40 uppercase tracking-widest font-mono">Tower Shop</span>
           </div>
-          <p className="text-[10px] text-white/30 text-center mt-2 font-mono">Click grid to place</p>
+          <span className="text-[9px] text-white/25 font-mono">[1-5]</span>
         </div>
-      )}
 
-      {/* Selected tower info */}
-      {selectedTower && (
-        <div className="p-3 flex flex-col gap-3 flex-1 overflow-y-auto">
-          <div className="bg-dark-700 rounded-xl p-3 border border-cyber-blue/20">
-            {(() => {
-              const def = TOWER_DEFS[selectedTower.type];
-              return (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: `${def.color}33`, border: `1px solid ${def.accentColor}66` }}
-                      >
-                        <TowerSvgIcon type={selectedTower.type} color={def.accentColor} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold font-mono text-white">{def.name}</p>
-                        <div className="flex gap-1 mt-0.5">
-                          {Array.from({ length: 3 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className="w-2 h-2 rounded-full border"
-                              style={{
-                                background: i < selectedTower.level ? def.accentColor : 'transparent',
-                                borderColor: def.accentColor,
-                                boxShadow: i < selectedTower.level ? `0 0 4px ${def.accentColor}` : 'none',
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-white/30 font-mono">Kills: {selectedTower.kills}</span>
-                  </div>
+        <div className="grid min-h-0 flex-1 grid-cols-5 gap-2 [grid-template-rows:minmax(0,1fr)]">
+          {(Object.keys(TOWER_DEFS) as TowerType[]).map(type => {
+            const def = TOWER_DEFS[type];
+            const isSelected = selectedType === type;
+            const canAfford = state.gold >= def.cost;
 
-                  <div className="grid grid-cols-2 gap-y-1.5">
-                    <StatRow label="DMG" value={selectedTower.damage} />
-                    <StatRow label="RNG" value={`${(selectedTower.range / 48).toFixed(1)}c`} />
-                    <StatRow label="Rate" value={`${selectedTower.fireRate.toFixed(1)}/s`} />
-                    <StatRow label="DPS" value={(selectedTower.damage * selectedTower.fireRate).toFixed(0)} />
-                  </div>
-
-                  <TraitList lines={getTowerTraitLines(selectedTower.type, selectedTower.level)} className="mt-3" />
-                </>
-              );
-            })()}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2">
-            {selectedTower.level < 3 && (
+            return (
               <button
-                onClick={() => onUpgrade(selectedTower.id)}
-                disabled={state.gold < TOWER_DEFS[selectedTower.type].upgradeCost[selectedTower.level - 1]}
-                className="flex items-center justify-between px-3 py-2.5 bg-cyber-blue/15 border border-cyber-blue/50 rounded-xl text-cyber-blue font-bold font-mono text-xs hover:bg-cyber-blue/25 hover:shadow-cyber transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                key={type}
+                onClick={() => onSelectTower(isSelected ? null : type)}
+                className={`relative flex h-full min-h-0 flex-col items-center justify-center gap-1.5 rounded-xl border p-2 transition-all duration-200 ${
+                  isSelected
+                    ? 'border-cyber-blue/80 bg-cyber-blue/15 shadow-cyber'
+                    : canAfford
+                      ? 'border-white/10 bg-dark-700 hover:border-white/30 hover:bg-dark-600'
+                      : 'border-white/5 bg-dark-700 opacity-40 cursor-not-allowed'
+                }`}
+                disabled={!canAfford && !isSelected}
               >
-                <span>⬆ Upgrade to Lv.{selectedTower.level + 1}</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-yellow-400 text-[10px]">◆</span>
-                  <span className="text-yellow-300">{TOWER_DEFS[selectedTower.type].upgradeCost[selectedTower.level - 1]}</span>
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center border"
+                  style={{
+                    background: `${def.color}22`,
+                    borderColor: `${def.accentColor}44`,
+                    boxShadow: isSelected ? `0 0 12px ${def.accentColor}44` : 'none',
+                  }}
+                >
+                  <TowerSvgIcon type={type} color={def.accentColor} />
                 </div>
-              </button>
-            )}
-            {selectedTower.level >= 3 && (
-              <div className="text-center py-2 text-[10px] text-cyber-green font-mono uppercase tracking-widest">
-                ✓ Max Level
-              </div>
-            )}
 
-            <button
-              onClick={() => onSell(selectedTower.id)}
-              className="flex items-center justify-between px-3 py-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 font-mono text-xs hover:bg-red-500/20 hover:border-red-500/50 transition-all"
-            >
-              <span>✕ Sell Tower</span>
-              <div className="flex items-center gap-1">
-                <span className="text-yellow-400 text-[10px]">◆</span>
-                <span className="text-yellow-300">
-                  {Math.floor(TOWER_DEFS[selectedTower.type].cost * 0.6)}
+                <span className="text-[11px] font-bold font-mono text-white/90">{def.name}</span>
+                <span className={`text-[10px] font-mono font-bold ${canAfford ? 'text-yellow-300' : 'text-red-400'}`}>
+                  ◆ {def.cost}
                 </span>
-              </div>
-            </button>
 
-            <button
-              onClick={onDeselect}
-              className="px-3 py-2 border border-white/10 rounded-xl text-white/40 font-mono text-xs hover:text-white/60 hover:border-white/20 transition-all"
-            >
-              Deselect
-            </button>
-          </div>
+                {isSelected && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyber-blue rounded-full shadow-cyber" />
+                )}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      {/* Empty state */}
-      {!state.selectedTowerType && !selectedTower && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4 text-center">
-          <div className="text-3xl opacity-20">▦</div>
-          <p className="text-[11px] text-white/25 font-mono">Select a tower type to place,<br />or click a placed tower</p>
-        </div>
-      )}
-
-      {/* Keyboard hints */}
-      <div className="p-3 border-t border-cyber-blue/10">
-        <div className="grid grid-cols-2 gap-y-1">
-          {[
-            ['[1-5]', 'Select tower'],
-            ['[Esc]', 'Cancel/deselect'],
-            ['[Space]', 'Start wave'],
-            ['[P]', 'Pause'],
-          ].map(([key, label]) => (
-            <div key={key} className="flex items-center gap-1.5 col-span-1">
-              <span className="text-[9px] font-mono px-1 py-0.5 bg-dark-700 border border-white/15 rounded text-white/50">{key}</span>
-              <span className="text-[9px] text-white/25 font-mono">{label}</span>
-            </div>
-          ))}
-        </div>
+      <div className="flex h-full min-h-0 min-w-[220px] flex-1 overflow-hidden rounded-xl border border-cyber-blue/20 bg-dark-900/70 p-3">
+        {selectedTower ? (
+          <SelectedTowerPanel
+            state={state}
+            tower={selectedTower}
+            onUpgrade={onUpgrade}
+            onSell={onSell}
+            onDeselect={onDeselect}
+          />
+        ) : selectedType ? (
+          <SelectedBuildPanel type={selectedType} />
+        ) : (
+          <BriefingPlaceholder />
+        )}
       </div>
     </div>
   );
 }
 
-function TraitList({ lines, className = '' }: { lines: string[]; className?: string }) {
+/** Same scaffold as SelectedBuildPanel so layout does not snap when picking a tower. */
+function BriefingPlaceholder() {
   return (
-    <div className={`space-y-1 border-t border-white/10 pt-2 mb-2 ${className}`}>
-      {lines.map(line => (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-dark-700/70">
+          <TowerBriefingGlyph />
+        </div>
+        <div>
+          <p className="font-mono text-xs font-bold text-white/55">Briefing</p>
+          <p className="font-mono text-[10px] text-white/25">Pick a tower to preview</p>
+        </div>
+      </div>
+
+      <p className="mb-2 font-mono text-[11px] leading-snug text-white/35">
+        Select a tower in the shop or a built turret on the grid to inspect stats, traits, upgrades, or placement.
+      </p>
+
+      <div className="space-y-1 border-t border-white/10 pt-2">
+        <p className="font-mono text-[10px] leading-snug text-white/22">◇ Tower traits and perks list here.</p>
+      </div>
+
+      <div className="mt-auto grid grid-cols-4 gap-2">
+        <StatTile label="DMG" value="—" muted />
+        <StatTile label="RNG" value="—" muted />
+        <StatTile label="DPS" value="—" muted />
+        <StatTile label="RATE" value="—" muted />
+      </div>
+    </div>
+  );
+}
+
+function TowerBriefingGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="text-cyber-blue/45" aria-hidden>
+      <rect x="2.5" y="2.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.25" opacity="0.9" />
+      <path d="M6 7h6M6 9.5h4M6 12h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.75" />
+    </svg>
+  );
+}
+
+function SelectedBuildPanel({ type }: { type: TowerType }) {
+  const def = TOWER_DEFS[type];
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center border" style={{ background: `${def.color}22`, borderColor: `${def.accentColor}55` }}>
+          <TowerSvgIcon type={type} color={def.accentColor} />
+        </div>
+        <div>
+          <p className="text-xs font-bold font-mono text-white">{def.name}</p>
+          <p className="text-[10px] text-white/30 font-mono">Click grid to place</p>
+        </div>
+      </div>
+
+      <p className="text-[11px] leading-snug text-white/60 font-mono mb-2">{def.description}</p>
+      <TraitList lines={getTowerTraitLines(type)} />
+
+      <div className="grid grid-cols-4 gap-2 mt-auto">
+        <StatTile label="DMG" value={def.damage} />
+        <StatTile label="RNG" value={`${def.range.toFixed(1)}c`} />
+        <StatTile label="DPS" value={(def.damage * def.fireRate).toFixed(0)} />
+        <StatTile label="RATE" value={`${def.fireRate}/s`} />
+      </div>
+    </div>
+  );
+}
+
+function SelectedTowerPanel({ state, tower, onUpgrade, onSell, onDeselect }: {
+  state: GameState;
+  tower: GameState['towers'][number];
+  onUpgrade: (id: string) => void;
+  onSell: (id: string) => void;
+  onDeselect: () => void;
+}) {
+  const def = TOWER_DEFS[tower.type];
+  const upgradeCost = def.upgradeCost[tower.level - 1];
+
+  return (
+    <div className="h-full flex gap-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center border" style={{ background: `${def.color}33`, borderColor: `${def.accentColor}66` }}>
+              <TowerSvgIcon type={tower.type} color={def.accentColor} />
+            </div>
+            <div>
+              <p className="text-xs font-bold font-mono text-white">{def.name}</p>
+              <div className="flex gap-1 mt-0.5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 rounded-full border"
+                    style={{
+                      background: i < tower.level ? def.accentColor : 'transparent',
+                      borderColor: def.accentColor,
+                      boxShadow: i < tower.level ? `0 0 4px ${def.accentColor}` : 'none',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <span className="text-[10px] text-white/30 font-mono">Kills {tower.kills}</span>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mb-2">
+          <StatTile label="DMG" value={tower.damage} />
+          <StatTile label="RNG" value={`${(tower.range / CELL_SIZE).toFixed(1)}c`} />
+          <StatTile label="RATE" value={`${tower.fireRate.toFixed(1)}/s`} />
+          <StatTile label="DPS" value={(tower.damage * tower.fireRate).toFixed(0)} />
+        </div>
+
+        <TraitList lines={getTowerTraitLines(tower.type, tower.level)} />
+      </div>
+
+      <div className="w-40 flex flex-col gap-2 justify-center">
+        {tower.level < 3 ? (
+          <button
+            onClick={() => onUpgrade(tower.id)}
+            disabled={state.gold < upgradeCost}
+            className="flex items-center justify-between px-3 py-2 bg-cyber-blue/15 border border-cyber-blue/50 rounded-xl text-cyber-blue font-bold font-mono text-xs hover:bg-cyber-blue/25 hover:shadow-cyber transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <span>Lv.{tower.level + 1}</span>
+            <span className="text-yellow-300">◆ {upgradeCost}</span>
+          </button>
+        ) : (
+          <div className="text-center py-2 text-[10px] text-cyber-green font-mono uppercase tracking-widest">
+            Max Level
+          </div>
+        )}
+        <button
+          onClick={() => onSell(tower.id)}
+          className="flex items-center justify-between px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 font-mono text-xs hover:bg-red-500/20 hover:border-red-500/50 transition-all"
+        >
+          <span>Sell</span>
+          <span className="text-yellow-300">◆ {Math.floor(def.cost * 0.6)}</span>
+        </button>
+        <button
+          onClick={onDeselect}
+          className="px-3 py-2 border border-white/10 rounded-xl text-white/40 font-mono text-xs hover:text-white/60 hover:border-white/20 transition-all"
+        >
+          Deselect
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TraitList({ lines }: { lines: string[] }) {
+  return (
+    <div className="space-y-1 border-t border-white/10 pt-2">
+      {lines.slice(0, 3).map(line => (
         <p key={line} className="text-[10px] leading-snug text-white/45 font-mono">
           {line}
         </p>
@@ -261,11 +280,17 @@ function TraitList({ lines, className = '' }: { lines: string[]; className?: str
   );
 }
 
-function StatRow({ label, value }: { label: string; value: string | number }) {
+function StatTile({ label, value, muted }: { label: string; value: string | number; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[9px] text-white/30 font-mono uppercase w-8">{label}</span>
-      <span className="text-[11px] text-white/80 font-mono font-medium">{value}</span>
+    <div
+      className={`rounded-md border border-white/5 px-2 py-1 ${muted ? 'border-white/[0.04] bg-dark-800/55' : 'bg-dark-700/80'}`}
+    >
+      <p className="font-mono text-[8px] text-white/25">{label}</p>
+      <p
+        className={`truncate font-mono text-[10px] font-bold ${muted ? 'text-white/35' : 'text-white/80'}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

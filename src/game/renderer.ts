@@ -1,5 +1,5 @@
-import type { GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2 } from './types';
-import { CELL_SIZE, GRID_COLS, GRID_ROWS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS, PATH_WAYPOINTS } from './constants';
+import type { GameState, Tower, Particle, VisualEffect, Vec2, Hero } from './types';
+import { CELL_SIZE, GRID_COLS, GRID_ROWS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS } from './constants';
 import { LASER_ACTIVE_MS } from './engine';
 
 export function renderGame(
@@ -23,6 +23,7 @@ export function renderGame(
   drawDataCenter(ctx, state, time);
   drawSpawnPortal(ctx, state, time);
   drawTowers(ctx, state, time);
+  drawHero(ctx, state.hero, time);
   drawEnemies(ctx, state, time);
   drawLaserBeams(ctx, state, time);
   drawProjectiles(ctx, state, time);
@@ -30,6 +31,92 @@ export function renderGame(
   drawParticles(ctx, state.particles);
   drawRangePreview(ctx, state, hoveredCell, state.cameraX);
 
+  ctx.restore();
+}
+
+function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
+  const walk = Math.sin(time * 12) * 1.5;
+
+  ctx.save();
+  ctx.translate(hero.targetX, hero.targetY);
+  ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+  ctx.fillStyle = 'rgba(0, 212, 255, 0.08)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, 10 + Math.sin(time * 5) * 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(hero.x, hero.y);
+  ctx.rotate(hero.angle);
+
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = hero.targetId ? 18 : 8;
+
+  // Mobile defense mecha chassis.
+  ctx.fillStyle = '#12243a';
+  ctx.strokeStyle = '#5ecbff';
+  ctx.lineWidth = 1.4;
+  roundedRect(ctx, -11, -11, 22, 22, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#1b3656';
+  roundedRect(ctx, -7, -7, 14, 14, 3);
+  ctx.fill();
+
+  ctx.fillStyle = '#64ffda';
+  ctx.shadowColor = '#64ffda';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(3, -3, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = hero.targetId ? 12 : 4;
+  ctx.strokeStyle = '#5ecbff';
+  ctx.lineWidth = 3;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(-4, side * 9);
+    ctx.lineTo(-9 + walk * side, side * 15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(7, side * 8);
+    ctx.lineTo(12 - walk * side, side * 14);
+    ctx.stroke();
+  }
+
+  // Front-mounted machine gun.
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#263b52';
+  roundedRect(ctx, 8, -5, 7, 10, 2);
+  ctx.fill();
+  ctx.fillStyle = '#d8f3ff';
+  roundedRect(ctx, 13, -2, 14, 4, 2);
+  ctx.fill();
+  if (hero.targetId) {
+    ctx.fillStyle = `rgba(246, 196, 83, ${0.6 + Math.sin(time * 40) * 0.25})`;
+    ctx.shadowColor = '#f6c453';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(29, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(hero.x, hero.y);
+  ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, hero.range, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -574,6 +661,9 @@ function drawEnemies(ctx: CanvasRenderingContext2D, state: GameState, time: numb
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   for (const proj of state.projectiles) {
+    const target = state.enemies.find(e => e.id === proj.targetId);
+    const angle = target ? Math.atan2(target.y - proj.y, target.x - proj.x) : 0;
+
     ctx.save();
     ctx.translate(proj.x, proj.y);
     ctx.shadowColor = proj.color;
@@ -627,6 +717,21 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: 
         ctx.fillStyle = 'rgba(255, 100, 0, 0.5)';
         ctx.beginPath();
         ctx.arc(0, 0, proj.size * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'machine_round':
+        ctx.rotate(angle);
+        ctx.shadowColor = '#f6c453';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#f6c453';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-7, 0);
+        ctx.lineTo(8, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#fff4ba';
+        ctx.beginPath();
+        ctx.arc(9, 0, 2.2, 0, Math.PI * 2);
         ctx.fill();
         break;
     }

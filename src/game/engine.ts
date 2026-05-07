@@ -1,7 +1,7 @@
-import type { GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2, TowerType } from './types';
+import type { GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2, TowerType, Hero } from './types';
 import {
   CELL_SIZE, GRID_COLS, GRID_ROWS, STARTING_GOLD, STARTING_LIVES, MAX_WAVES,
-  TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS, MAP_W, VIEWPORT_W,
+  TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS, MAP_W, MAP_H, VIEWPORT_W, HERO_START, HERO_STATS,
 } from './constants';
 import { buildPath, buildPathGrid, distance, angleTo } from './pathfinding';
 
@@ -31,6 +31,21 @@ export function createInitialState(): GameState {
     gold: STARTING_GOLD,
     score: 0,
     towers: [],
+    hero: {
+      id: 'hero',
+      x: HERO_START.x,
+      y: HERO_START.y,
+      targetX: HERO_START.x,
+      targetY: HERO_START.y,
+      speed: HERO_STATS.speed,
+      damage: HERO_STATS.damage,
+      range: HERO_STATS.range * CELL_SIZE,
+      fireRate: HERO_STATS.fireRate,
+      lastFired: 0,
+      targetId: null,
+      angle: 0,
+      kills: 0,
+    },
     enemies: [],
     projectiles: [],
     particles: [],
@@ -47,6 +62,24 @@ export function createInitialState(): GameState {
     totalKills: 0,
     totalGoldEarned: STARTING_GOLD,
     cameraX: 0,
+  };
+}
+
+export function commandHeroMove(state: GameState, x: number, y: number): GameState {
+  const heroRadius = CELL_SIZE * 0.45;
+  const targetX = Math.max(heroRadius, Math.min(MAP_W - heroRadius, x));
+  const targetY = Math.max(heroRadius, Math.min(MAP_H - heroRadius, y));
+
+  return {
+    ...state,
+    hero: {
+      ...state.hero,
+      targetX,
+      targetY,
+      angle: angleTo(state.hero, { x: targetX, y: targetY }),
+    },
+    selectedTowerId: null,
+    selectedTowerType: null,
   };
 }
 
@@ -195,6 +228,9 @@ export function tickGame(state: GameState, deltaMs: number): GameState {
   // Move enemies
   s = tickEnemies(s, dt);
 
+  // Hero movement and machine-gun support fire
+  s = tickHero(s, dt, deltaMs * state.gameSpeed);
+
   // Tower targeting & firing
   s = tickTowers(s, deltaMs * state.gameSpeed);
 
@@ -319,14 +355,14 @@ function tickEnemies(state: GameState, dt: number): GameState {
   };
 }
 
-function findBestTarget(tower: Tower, enemies: Enemy[]): Enemy | null {
+function findBestTarget(source: Pick<Tower, 'x' | 'y' | 'range'> | Pick<Hero, 'x' | 'y' | 'range'>, enemies: Enemy[]): Enemy | null {
   let best: Enemy | null = null;
   let bestProgress = -1;
 
   for (const enemy of enemies) {
     if (!enemy.isAlive) continue;
-    const dist = distance(tower, enemy);
-    if (dist <= tower.range) {
+    const dist = distance(source, enemy);
+    if (dist <= source.range) {
       const prog = enemy.pathIndex + enemy.pathProgress;
       if (prog > bestProgress) {
         bestProgress = prog;
@@ -336,6 +372,60 @@ function findBestTarget(tower: Tower, enemies: Enemy[]): Enemy | null {
   }
 
   return best;
+}
+
+function tickHero(state: GameState, dt: number, deltaMs: number): GameState {
+  let hero = { ...state.hero };
+  const newProjectiles = [...state.projectiles];
+
+  const moveDist = distance(hero, { x: hero.targetX, y: hero.targetY });
+  if (moveDist > 1) {
+    const step = Math.min(moveDist, hero.speed * dt);
+    const moveAngle = Math.atan2(hero.targetY - hero.y, hero.targetX - hero.x);
+    hero = {
+      ...hero,
+      x: hero.x + Math.cos(moveAngle) * step,
+      y: hero.y + Math.sin(moveAngle) * step,
+      angle: moveAngle,
+    };
+  }
+
+  const best = findBestTarget(hero, state.enemies);
+  const lastFired = hero.lastFired + deltaMs;
+  const interval = 1000 / hero.fireRate;
+
+  if (best) {
+    hero = { ...hero, targetId: best.id, angle: angleTo(hero, best) };
+
+    if (lastFired >= interval) {
+      newProjectiles.push({
+        id: uid(),
+        type: 'machine_round',
+        x: hero.x,
+        y: hero.y,
+        targetId: best.id,
+        speed: 680,
+        damage: hero.damage,
+        towerId: hero.id,
+        splashRadius: 0,
+        color: '#f6c453',
+        size: 3,
+        slowAmount: 0,
+        slowDuration: 0,
+      });
+      hero = { ...hero, lastFired: 0 };
+    } else {
+      hero = { ...hero, lastFired };
+    }
+  } else {
+    hero = { ...hero, targetId: null, lastFired };
+  }
+
+  return {
+    ...state,
+    hero,
+    projectiles: newProjectiles,
+  };
 }
 
 function activeLaserMsDuring(prevCycleMs: number, elapsedMs: number): number {
@@ -632,13 +722,14 @@ function tickProjectiles(state: GameState, dt: number): GameState {
 
       // Spawn hit particles
       const isFrost = proj.type === 'frost_bolt';
-      const particleCount = isFrost ? 26 : 6;
+      const isMachineRound = proj.type === 'machine_round';
+      const particleCount = isFrost ? 26 : isMachineRound ? 3 : 6;
       for (let i = 0; i < particleCount; i++) {
         const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.35;
         const speed = isFrost ? 70 + Math.random() * 170 : 60 + Math.random() * 80;
         const color = isFrost
           ? ['#e0f7fa', '#b2ebf2', '#80deea', '#ffffff'][i % 4]
-          : proj.color;
+          : isMachineRound ? '#f6c453' : proj.color;
         newParticles.push({
           id: uid(),
           x: target.x,
@@ -677,6 +768,7 @@ function tickProjectiles(state: GameState, dt: number): GameState {
   // Apply damage
   let enemies = state.enemies.map(e => ({ ...e }));
   let towers = state.towers.map(t => ({ ...t }));
+  let hero = { ...state.hero };
   let gold = state.gold;
   let score = state.score;
   let kills = state.totalKills;
@@ -746,9 +838,10 @@ function tickProjectiles(state: GameState, dt: number): GameState {
           });
         }
 
-        // Credit kill to tower
+        // Credit kill to the source that landed the projectile.
         const towerIdx = towers.findIndex(t => t.id === hit.towerId);
         if (towerIdx >= 0) towers[towerIdx] = { ...towers[towerIdx], kills: towers[towerIdx].kills + 1 };
+        else if (hit.towerId === hero.id) hero = { ...hero, kills: hero.kills + 1 };
       }
     }
   }
@@ -764,6 +857,7 @@ function tickProjectiles(state: GameState, dt: number): GameState {
     totalKills: kills,
     totalGoldEarned,
     towers,
+    hero,
   };
 }
 
