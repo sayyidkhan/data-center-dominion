@@ -20,11 +20,11 @@ export function WavePreview({ state: gameState, compact = false }: WavePreviewPr
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-1.5 h-3 bg-cyber-purple rounded-full" style={{ boxShadow: '0 0 6px #7c3aed' }} />
-            <span className="text-[10px] text-white/45 font-mono uppercase tracking-widest">
+            <span className="text-xs font-mono uppercase tracking-widest text-white/50">
               Wave {nextWaveIdx + 1}
             </span>
           </div>
-          <span className="text-[10px] font-bold font-mono text-yellow-300/80 flex-shrink-0">◆ +{nextWave.goldBonus}</span>
+          <span className="flex-shrink-0 font-mono text-xs font-bold text-yellow-300/80">◆ +{nextWave.goldBonus}</span>
         </div>
 
         <div className="mt-1.5 flex items-center gap-2 overflow-hidden">
@@ -36,14 +36,14 @@ export function WavePreview({ state: gameState, compact = false }: WavePreviewPr
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ background: def.color, boxShadow: `0 0 4px ${def.color}` }}
                 />
-                <span className="text-[10px] font-mono text-white/65 capitalize">{group.type}</span>
-                <span className="text-[10px] font-mono text-white/35">x{group.count}</span>
+                <span className="font-mono text-xs capitalize text-white/70">{group.type}</span>
+                <span className="font-mono text-xs text-white/45">x{group.count}</span>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-1 text-right text-[10px] font-bold font-mono text-white/45">{totalEnemies} total</div>
+        <div className="mt-1 text-right font-mono text-xs font-bold text-white/50">{totalEnemies} total</div>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function WavePreview({ state: gameState, compact = false }: WavePreviewPr
     <div className="bg-dark-800 border-t border-cyber-blue/20 px-4 py-2.5 flex items-center gap-6 select-none">
       <div className="flex items-center gap-2 min-w-[90px]">
         <div className="w-1.5 h-3 bg-cyber-purple rounded-full" style={{ boxShadow: '0 0 6px #7c3aed' }} />
-        <span className="text-[10px] text-white/40 font-mono uppercase tracking-widest">
+        <span className="font-mono text-xs uppercase tracking-widest text-white/45">
           Next: Wave {nextWaveIdx + 1}
         </span>
       </div>
@@ -66,8 +66,8 @@ export function WavePreview({ state: gameState, compact = false }: WavePreviewPr
                 className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{ background: def.color, boxShadow: `0 0 4px ${def.color}` }}
               />
-              <span className="text-[11px] font-mono text-white/60 capitalize">{group.type}</span>
-              <span className="text-[11px] font-mono text-white/30">×{group.count}</span>
+              <span className="font-mono text-sm capitalize text-white/65">{group.type}</span>
+              <span className="font-mono text-sm text-white/35">×{group.count}</span>
               {i < nextWave.enemies.length - 1 && (
                 <span className="text-white/15 mx-1">·</span>
               )}
@@ -78,12 +78,12 @@ export function WavePreview({ state: gameState, compact = false }: WavePreviewPr
 
       <div className="flex items-center gap-4 flex-shrink-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-white/30 font-mono">Total:</span>
-          <span className="text-[11px] font-bold font-mono text-white/70">{totalEnemies}</span>
+          <span className="font-mono text-xs text-white/40">Total:</span>
+          <span className="font-mono text-sm font-bold text-white/75">{totalEnemies}</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-yellow-400 text-[10px]">◆</span>
-          <span className="text-[11px] font-bold font-mono text-yellow-300/70">+{nextWave.goldBonus}</span>
+          <span className="text-xs text-yellow-400">◆</span>
+          <span className="font-mono text-sm font-bold text-yellow-300/75">+{nextWave.goldBonus}</span>
         </div>
       </div>
     </div>

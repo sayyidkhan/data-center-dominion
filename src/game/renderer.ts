@@ -11,6 +11,12 @@ export function renderGame(
   ctx.save();
   ctx.clearRect(0, 0, VIEWPORT_W, VIEWPORT_H);
 
+  if (state.phase === 'menu') {
+    drawMenuBackdrop(ctx, time);
+    ctx.restore();
+    return;
+  }
+
   // Background
   ctx.fillStyle = '#050810';
   ctx.fillRect(0, 0, VIEWPORT_W, VIEWPORT_H);
@@ -32,6 +38,75 @@ export function renderGame(
   drawRangePreview(ctx, state, hoveredCell, state.cameraX);
 
   ctx.restore();
+}
+
+/** Title screen only — crisp procedural backdrop instead of blurring the live map tiles. */
+function drawMenuBackdrop(ctx: CanvasRenderingContext2D, time: number) {
+  const w = VIEWPORT_W;
+  const h = VIEWPORT_H;
+
+  const base = ctx.createRadialGradient(w * 0.52, h * 0.22, 0, w * 0.5, h * 0.42, Math.max(w, h) * 0.95);
+  base.addColorStop(0, '#122742');
+  base.addColorStop(0.35, '#081426');
+  base.addColorStop(1, '#03060e');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+
+  const glow = ctx.createRadialGradient(w * 0.5, h * 0.38, 0, w * 0.5, h * 0.42, w * 0.72);
+  glow.addColorStop(0, 'rgba(0, 212, 255, 0.14)');
+  glow.addColorStop(0.45, 'rgba(0, 132, 255, 0.04)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0, 212, 255, 0.045)';
+  ctx.lineWidth = 1;
+  const step = 24;
+  for (let x = 0; x <= w; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= h; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(w, y + 0.5);
+    ctx.stroke();
+  }
+
+  ctx.translate(w / 2, h * 0.62);
+  ctx.scale(1, 0.42);
+  ctx.strokeStyle = 'rgba(0, 212, 255, 0.035)';
+  const gw = w * 0.95;
+  const gh = h * 0.85;
+  for (let i = -6; i <= 6; i++) {
+    const ox = (i * gw) / 14 + Math.sin(time * 0.6 + i * 0.4) * 6;
+    ctx.beginPath();
+    ctx.moveTo(ox - gw / 2, -gh / 2);
+    ctx.lineTo(ox + gw / 2, gh / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ox - gw / 2, gh / 2);
+    ctx.lineTo(ox + gw / 2, -gh / 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const shimmer = (Math.sin(time * 1.1) * 0.5 + 0.5) * 0.06 + 0.04;
+  const beam = ctx.createLinearGradient(0, h * 0.28, w, h * 0.72);
+  beam.addColorStop(0, 'rgba(0, 212, 255, 0)');
+  beam.addColorStop(0.48, `rgba(94, 203, 255, ${shimmer})`);
+  beam.addColorStop(1, 'rgba(0, 212, 255, 0)');
+  ctx.fillStyle = beam;
+  ctx.fillRect(0, 0, w, h);
+
+  const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.18, w / 2, h / 2, Math.max(w, h) * 0.72);
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(0, 2, 8, 0.82)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
 }
 
 function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {

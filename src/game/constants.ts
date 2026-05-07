@@ -9,11 +9,14 @@ export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
 export const MAP_W = CELL_SIZE * GRID_COLS;
 export const MAP_H = CELL_SIZE * GRID_ROWS;
 
-/** Fixed HUD strip height so menu and in-game chrome share the same outer size. */
-export const HUD_SLOT_H = 76;
+/** Fixed HUD strip height — room for readable labels + stats + controls. */
+export const HUD_SLOT_H = 116;
 
 /** Bottom shop / mecha panel height (fixed shell; menu uses empty placeholder). */
-export const FOOTER_H = 210;
+export const FOOTER_H = 292;
+
+/** Min width for footer `1fr 2fr 1fr` grid (hero | shop | briefing) before horizontal scroll. */
+export const FOOTER_GRID_MIN_W = 1120;
 
 // Legacy aliases kept for compatibility
 export const CANVAS_WIDTH = VIEWPORT_W;
