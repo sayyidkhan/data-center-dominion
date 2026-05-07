@@ -274,21 +274,27 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
 
   ctx.save();
 
-  // ─── Outer campus glow ─────────────────────────────────────────────────────
+  // ─── Outer campus glow — two-layer: soft wide + tight bright ──────────────
   ctx.shadowColor = '#00d4ff';
-  ctx.shadowBlur  = 24 * pulse;
-  ctx.fillStyle   = 'rgba(0,212,255,0.055)';
-  roundedRect(ctx, campusL - 10, campusT - 10, campusW + 20, campusH + 20, 10);
+  ctx.shadowBlur  = 40 * pulse;
+  ctx.fillStyle   = 'rgba(0,212,255,0.05)';
+  roundedRect(ctx, campusL - 14, campusT - 14, campusW + 28, campusH + 28, 12);
+  ctx.fill();
+  ctx.shadowBlur  = 12 * pulse;
+  ctx.fillStyle   = 'rgba(0,212,255,0.04)';
+  roundedRect(ctx, campusL - 5, campusT - 5, campusW + 10, campusH + 10, 8);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // ─── Perimeter fence / wall ────────────────────────────────────────────────
-  ctx.strokeStyle = 'rgba(79,195,247,0.28)';
+  // ─── Perimeter fence — animated marching-ants dash ────────────────────────
+  ctx.strokeStyle = `rgba(79,195,247,${0.35 + 0.15 * pulse})`;
   ctx.lineWidth   = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.setLineDash([5, 4]);
+  ctx.lineDashOffset = -(time * 8) % 9;
   roundedRect(ctx, campusL - 6, campusT - 6, campusW + 12, campusH + 12, 8);
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
 
   // ─── Helper: draw a server-rack panel ──────────────────────────────────────
   const drawRackPanel = (px: number, py: number, pw: number, ph: number, rows: number, cols: number) => {
@@ -343,35 +349,74 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   ctx.lineTo(hallX + hallW, hallY + S * 0.28);
   ctx.stroke();
 
-  // Label stripe  "DATA CENTER"
-  ctx.fillStyle = 'rgba(0,212,255,0.75)';
-  ctx.font      = `bold ${Math.round(S * 0.19)}px monospace`;
-  ctx.textAlign = 'center';
+  // Label stripe  "DATA CENTER" — bigger, brighter, double-glow
+  ctx.textAlign   = 'center';
+  ctx.font        = `bold ${Math.round(S * 0.29)}px monospace`;
   ctx.shadowColor = '#00d4ff';
-  ctx.shadowBlur  = 8 * pulse;
-  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.21);
-  ctx.shadowBlur = 0;
+  ctx.shadowBlur  = 18 * pulse;
+  ctx.fillStyle   = `rgba(0,212,255,${0.55 + 0.2 * pulse})`;
+  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
+  ctx.shadowBlur  = 6;
+  ctx.fillStyle   = 'rgba(255,255,255,0.82)';
+  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
+  ctx.shadowBlur  = 0;
+
+  // Thin animated network-traffic bar under the label
+  const trafficW  = hallW - 12;
+  const trafficY  = hallY + S * 0.34;
+  ctx.fillStyle   = 'rgba(0,212,255,0.08)';
+  ctx.fillRect(hallX + 6, trafficY, trafficW, 3);
+  const trafficFill = ((time * 0.4) % 1) * trafficW;
+  const tGrad = ctx.createLinearGradient(hallX + 6, 0, hallX + 6 + trafficW, 0);
+  tGrad.addColorStop(0,   'rgba(0,212,255,0)');
+  tGrad.addColorStop(Math.max(0, trafficFill / trafficW - 0.15), 'rgba(0,212,255,0)');
+  tGrad.addColorStop(trafficFill / trafficW, 'rgba(0,212,255,0.9)');
+  tGrad.addColorStop(Math.min(1, trafficFill / trafficW + 0.15), 'rgba(0,212,255,0)');
+  tGrad.addColorStop(1,   'rgba(0,212,255,0)');
+  ctx.fillStyle = tGrad;
+  ctx.fillRect(hallX + 6, trafficY, trafficW, 3);
 
   // Three rack panels inside hall
   const rackW = (hallW - 16) / 3 - 4;
-  const rackH = hallH - S * 0.5 - 8;
+  const rackH = hallH - S * 0.52 - 8;
   for (let i = 0; i < 3; i++) {
-    drawRackPanel(hallX + 6 + i * (rackW + 4), hallY + S * 0.38, rackW, rackH, 7, 4);
+    drawRackPanel(hallX + 6 + i * (rackW + 4), hallY + S * 0.42, rackW, rackH, 8, 5);
   }
 
-  // Rooftop HVAC units
+  // Animated scan-line sweeping across rack area
+  const scanX = hallX + 6 + ((time * 0.35) % 1) * (hallW - 12);
+  const scanGrad = ctx.createLinearGradient(scanX - 10, 0, scanX + 10, 0);
+  scanGrad.addColorStop(0,   'rgba(0,212,255,0)');
+  scanGrad.addColorStop(0.5, `rgba(0,212,255,${0.18 * pulse})`);
+  scanGrad.addColorStop(1,   'rgba(0,212,255,0)');
+  ctx.fillStyle = scanGrad;
+  ctx.fillRect(scanX - 10, hallY + S * 0.42, 20, rackH);
+
+  // Rooftop HVAC units — animated spinning fans
   for (let i = 0; i < 4; i++) {
     const hx = hallX + 6 + i * (hallW - 12) / 3.5;
+    const hcx = hx + S * 0.24;
+    const hcy = hallY - S * 0.21;
     ctx.fillStyle   = '#111f2e';
     ctx.strokeStyle = 'rgba(79,195,247,0.5)';
     ctx.lineWidth   = 1;
     roundedRect(ctx, hx, hallY - S * 0.38, S * 0.48, S * 0.35, 2);
     ctx.fill();
     ctx.stroke();
-    // fan circle
-    ctx.strokeStyle = `rgba(0,212,255,${0.3 * pulse})`;
+    // spinning fan blades
+    const fanAngle = time * 3.5 + i * 0.8;
+    ctx.strokeStyle = `rgba(0,212,255,${0.55 * pulse})`;
+    ctx.lineWidth   = 1;
+    for (let blade = 0; blade < 4; blade++) {
+      const a = fanAngle + blade * (Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(hcx, hcy);
+      ctx.lineTo(hcx + Math.cos(a) * S * 0.11, hcy + Math.sin(a) * S * 0.11);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(0,212,255,${0.25 * pulse})`;
     ctx.beginPath();
-    ctx.arc(hx + S * 0.24, hallY - S * 0.21, S * 0.12, 0, Math.PI * 2);
+    ctx.arc(hcx, hcy, S * 0.12, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -397,25 +442,53 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   ctx.fillText('COOLING', coolX + coolW / 2, coolY + S * 0.22);
   ctx.shadowBlur = 0;
 
-  // Cooling towers — vertical cylinders
+  // Cooling towers — vertical cylinders with blinking indicators
   for (let i = 0; i < 3; i++) {
     const tx = coolX + 10 + i * (coolW - 20) / 2;
     const ty = coolY + S * 0.35;
     const tw = (coolW - 28) / 3;
     const th = coolH - S * 0.55;
     ctx.fillStyle   = '#0a1828';
-    ctx.strokeStyle = 'rgba(41,182,246,0.55)';
+    ctx.strokeStyle = `rgba(41,182,246,${0.45 + 0.25 * pulse2})`;
     ctx.lineWidth   = 1;
     roundedRect(ctx, tx, ty, tw, th, 3);
     ctx.fill();
     ctx.stroke();
-    // steam rings
+
+    // Animated fill level bar inside each tower (capacity indicator)
+    const fillPct  = 0.55 + Math.sin(time * 0.7 + i * 1.1) * 0.25;
+    const fillH    = (th - 6) * fillPct;
+    const fillGrad = ctx.createLinearGradient(tx, ty + th - 3 - fillH, tx, ty + th - 3);
+    fillGrad.addColorStop(0,   `rgba(41,182,246,${0.12 * pulse2})`);
+    fillGrad.addColorStop(1,   `rgba(41,182,246,${0.45 * pulse2})`);
+    ctx.fillStyle = fillGrad;
+    ctx.fillRect(tx + 3, ty + th - 3 - fillH, tw - 6, fillH);
+
+    // Fill level "waterline" bright edge
+    ctx.strokeStyle = `rgba(128,222,234,${0.7 * pulse2})`;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(tx + 3, ty + th - 3 - fillH);
+    ctx.lineTo(tx + tw - 3, ty + th - 3 - fillH);
+    ctx.stroke();
+
+    // Status LED at top of each tower — blinks independently
+    const ledOn = Math.sin(time * (2.2 + i * 0.9) + i * 1.7) > 0.2;
+    ctx.fillStyle   = ledOn ? '#29b6f6' : '#0d2030';
+    ctx.shadowColor = '#29b6f6';
+    ctx.shadowBlur  = ledOn ? 9 * pulse2 : 0;
+    ctx.beginPath();
+    ctx.arc(tx + tw / 2, ty + 6, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Steam rings rising from top
     for (let r = 0; r < 3; r++) {
-      const alpha = ((time * 0.6 + r * 0.33) % 1);
+      const alpha = ((time * 0.6 + i * 0.4 + r * 0.33) % 1);
       ctx.strokeStyle = `rgba(128,222,234,${(1 - alpha) * 0.4 * pulse2})`;
       ctx.lineWidth   = 1;
       ctx.beginPath();
-      ctx.arc(tx + tw / 2, ty + th * 0.25 - alpha * S * 0.5, tw * 0.28 + alpha * 4, 0, Math.PI * 2);
+      ctx.arc(tx + tw / 2, ty + th * 0.22 - alpha * S * 0.5, tw * 0.28 + alpha * 4, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -507,20 +580,65 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     ctx.stroke();
   }
 
-  // Animated intake beam — pulses toward the path
-  const beamAlpha = (Math.sin(time * 4) * 0.3 + 0.5);
-  const grad = ctx.createLinearGradient(bayX + bayW, pathEnd.y, pathEnd.x + S, pathEnd.y);
-  grad.addColorStop(0,   `rgba(0,212,255,${beamAlpha * 0.6})`);
-  grad.addColorStop(1,   'rgba(0,212,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(bayX + bayW, pathEnd.y - 3, S * 0.8, 6);
+  // Animated sliding door panels (two halves that part when "active")
+  const doorOpen = (Math.sin(time * 1.2) * 0.5 + 0.5);  // 0 = closed, 1 = fully open
+  const doorGap  = (bayH * 0.44) * doorOpen;
+  const midY     = bayY + bayH / 2;
+
+  const drawDoorPanel = (px: number, py: number, pw: number, ph: number, scanDir: 1 | -1) => {
+    if (ph <= 0) return;
+    // body
+    ctx.fillStyle   = '#0a1826';
+    ctx.strokeStyle = `rgba(0,212,255,${0.45 + 0.25 * pulse})`;
+    ctx.lineWidth   = 1;
+    roundedRect(ctx, px, py, pw, ph, 2);
+    ctx.fill();
+    ctx.stroke();
+    // horizontal scan line sweeping up or down
+    const scanProgress = (time * 0.9 * scanDir + (scanDir === -1 ? 1 : 0)) % 1;
+    const scanY = py + scanProgress * ph;
+    const sGrad = ctx.createLinearGradient(px, scanY - 6, px, scanY + 6);
+    sGrad.addColorStop(0,   'rgba(0,212,255,0)');
+    sGrad.addColorStop(0.5, `rgba(0,212,255,${0.55 * pulse})`);
+    sGrad.addColorStop(1,   'rgba(0,212,255,0)');
+    ctx.fillStyle = sGrad;
+    ctx.fillRect(px + 2, Math.max(py, scanY - 6), pw - 4, 12);
+    // two status LEDs on panel
+    for (let led = 0; led < 2; led++) {
+      const ledOn = Math.sin(time * (2.8 + led * 1.3) + led * 2.1) > 0;
+      ctx.fillStyle   = ledOn ? '#00d4ff' : '#0d2030';
+      ctx.shadowColor = '#00d4ff';
+      ctx.shadowBlur  = ledOn ? 7 * pulse : 0;
+      ctx.beginPath();
+      ctx.arc(px + pw * (0.3 + led * 0.4), py + ph * 0.75, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  };
+
+  const topPanelH   = bayH / 2 - 4 - doorGap / 2;
+  const botPanelH   = bayH / 2 - 4 - doorGap / 2;
+  drawDoorPanel(bayX + 4, bayY + 4,          bayW - 8, topPanelH, 1);
+  drawDoorPanel(bayX + 4, midY + doorGap / 2, bayW - 8, botPanelH, -1);
 
   // Bay warning chevrons on top & bottom
-  ctx.fillStyle = `rgba(255,204,0,${0.5 * pulse})`;
+  ctx.fillStyle = `rgba(255,204,0,${0.55 * pulse})`;
   ctx.font      = `bold ${Math.round(S * 0.22)}px monospace`;
   ctx.textAlign = 'center';
   ctx.fillText('▲', bayX + bayW / 2, bayY + S * 0.22);
   ctx.fillText('▼', bayX + bayW / 2, bayY + bayH - S * 0.04);
+
+  // Intake beam — wider, multi-layer glow when door is open
+  const beamAlpha2 = doorOpen * (Math.sin(time * 5) * 0.2 + 0.6);
+  const bGrad2 = ctx.createLinearGradient(bayX + bayW, pathEnd.y, bayX + bayW + S * 1.5, pathEnd.y);
+  bGrad2.addColorStop(0,   `rgba(0,212,255,${beamAlpha2 * 0.8})`);
+  bGrad2.addColorStop(0.4, `rgba(0,212,255,${beamAlpha2 * 0.35})`);
+  bGrad2.addColorStop(1,   'rgba(0,212,255,0)');
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur  = 10 * beamAlpha2;
+  ctx.fillStyle   = bGrad2;
+  ctx.fillRect(bayX + bayW, pathEnd.y - 5, S * 1.5, 10);
+  ctx.shadowBlur  = 0;
 
   // ─── Antenna / comms mast on rooftop ────────────────────────────────────────
   const antX = campusL + campusW * 0.72;

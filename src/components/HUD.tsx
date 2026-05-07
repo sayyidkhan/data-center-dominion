@@ -170,7 +170,7 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
 
             <div className="flex min-w-0 flex-col justify-center gap-1.5 px-2 sm:px-3">
               <HudStatLabel>Score</HudStatLabel>
-              <span className="truncate font-mono text-lg font-bold leading-none tabular-nums text-cyber-blue">
+              <span className="whitespace-nowrap font-mono text-base font-bold leading-none tabular-nums text-cyber-blue sm:text-lg">
                 {formatCompactCount(state.score)}
               </span>
             </div>
@@ -186,20 +186,20 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
       </div>
 
       {/* Center — wave panel height-capped inside fixed HUD row (grid-rows keeps header from growing with content) */}
-      <div className="flex min-h-0 min-w-0 max-h-full justify-center overflow-hidden px-px py-2">
+      <div className="flex min-h-0 min-w-0 max-h-full justify-center overflow-x-visible overflow-y-hidden px-px py-2">
         <div
-          className="box-border flex max-h-full min-h-0 w-full max-w-xl flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-xl border border-solid border-cyber-green/35 bg-cyber-green/[0.08] px-2.5 py-1.5 shadow-[0_8px_26px_rgba(0,0,0,0.35),0_0_14px_rgba(0,255,136,0.08)] sm:gap-2 sm:px-3 sm:py-2"
+          className="box-border flex max-h-full min-h-0 w-full min-w-0 max-w-xl flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-xl border border-solid border-cyber-green/35 bg-cyber-green/[0.08] px-2.5 py-1.5 shadow-[0_8px_26px_rgba(0,0,0,0.35),0_0_14px_rgba(0,255,136,0.08)] sm:gap-2 sm:px-3 sm:py-2"
           style={{ backgroundClip: 'padding-box' }}
         >
           {/* Row 1 — status only (matches live card); totals right */}
-          <div className="flex shrink-0 min-h-0 min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-solid border-white/[0.09] pb-1.5 sm:pb-2">
-            <div className="flex min-h-0 min-w-0 max-w-[min(100%,20rem)] flex-[1_1_auto] flex-wrap items-center gap-x-2 gap-y-0.5 sm:max-w-none">
+          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-nowrap items-center justify-between gap-x-2 border-b border-solid border-white/[0.09] pb-1.5 sm:gap-x-3 sm:pb-2">
+            <div className="flex min-h-0 min-w-0 flex-1 items-center gap-x-2 overflow-hidden">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full sm:h-2.5 sm:w-2.5 ${
                   state.phase === 'playing' ? 'animate-pulse bg-cyber-green' : 'bg-cyber-green/75'
                 }`}
               />
-              <span className="shrink-0 font-mono text-xs font-black uppercase leading-none tracking-wide text-cyber-green sm:text-sm">
+              <span className="min-w-0 truncate font-mono text-xs font-black uppercase leading-none tracking-wide text-cyber-green sm:text-sm">
                 {state.phase === 'paused'
                   ? `Paused · W${state.wave}`
                   : state.phase === 'playing' && state.wave > 0
