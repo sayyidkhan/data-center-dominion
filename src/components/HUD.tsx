@@ -122,6 +122,13 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
   const showStartWaveBtn =
     state.phase === 'wave_complete' || (state.phase === 'playing' && state.wave === 0);
 
+  const nextWaveToStart = Math.min(state.wave + 1, MAX_WAVES);
+  const startWaveActionLabel = `Start wave ${nextWaveToStart}`;
+  const startWaveHoverHint =
+    state.wave >= MAX_WAVES
+      ? 'No more waves'
+      : `Next round — click ▶ to start wave ${nextWaveToStart}`;
+
   const speedPresetButtons = [0.5, 1, 2, 3].map(speed => (
     <button
       key={speed}
@@ -294,25 +301,32 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
         </div>
       </div>
 
-      {/* Right — speed presets + Pause / Resume / Start (Start is merged with presets so hover has no double border) */}
+      {/* Right — speed presets separate from Pause / Resume / Start (matches layout during live play) */}
       <div className="flex min-h-0 min-w-0 max-h-full items-center justify-end gap-2 self-center overflow-hidden border-l border-white/[0.07] pl-2">
+        <div className="mr-2 flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-dark-900/55 px-1 py-1">
+          {speedPresetButtons}
+        </div>
+
         {showStartWaveBtn ? (
-          <div className="mr-2 flex max-w-full min-w-0 shrink items-stretch overflow-hidden rounded-xl border border-white/14 bg-dark-900/60">
-            <div className="flex shrink-0 items-center gap-0.5 p-1">{speedPresetButtons}</div>
-            <button
-              type="button"
-              onClick={onStartWave}
-              disabled={state.wave >= MAX_WAVES}
-              className="flex shrink-0 items-center gap-2 border-l border-white/10 px-3 py-2 pl-3 font-mono text-sm font-bold text-cyber-green transition-colors hover:bg-cyber-green/[0.14] hover:text-cyber-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyber-green/40 disabled:cursor-not-allowed disabled:opacity-35 sm:text-base sm:leading-none"
+          <button
+            type="button"
+            onClick={onStartWave}
+            disabled={state.wave >= MAX_WAVES}
+            title={startWaveHoverHint}
+            aria-label={state.wave >= MAX_WAVES ? 'No more waves' : `${startWaveActionLabel}. Primary control to begin the next round.`}
+            className="flex shrink-0 flex-row items-center gap-1.5 rounded-lg border border-cyber-green/35 bg-cyber-green/[0.08] px-2 py-1.5 transition-[color,background-color,box-shadow,transform,border-color] motion-safe:animate-pulse hover:animate-none hover:border-cyber-green/55 hover:bg-cyber-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-green/35 active:scale-[0.98] disabled:animate-none disabled:cursor-not-allowed disabled:border-white/12 disabled:bg-dark-700/50 disabled:opacity-40 sm:gap-2 sm:px-3 sm:py-2"
+          >
+            <span
+              aria-hidden
+              className="shrink-0 font-mono text-sm font-bold leading-none text-cyber-green drop-shadow-[0_0_8px_rgba(0,255,136,0.55)]"
             >
-              {state.wave === 0 ? '▶ Start' : `▶ Wave ${state.wave + 1}`}
-            </button>
-          </div>
-        ) : (
-          <div className="mr-2 flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-dark-900/55 px-1 py-1">
-            {speedPresetButtons}
-          </div>
-        )}
+              ▶
+            </span>
+            <span className="whitespace-nowrap font-mono text-sm font-semibold uppercase leading-none tracking-wide text-cyber-green/80">
+              {state.wave === MAX_WAVES ? 'Done' : state.wave === 0 ? 'Start' : `Wave ${state.wave + 1}`}
+            </span>
+          </button>
+        ) : null}
 
         {state.phase === 'playing' ? (
           <button
