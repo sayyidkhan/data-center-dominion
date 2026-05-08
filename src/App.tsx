@@ -211,6 +211,12 @@ export default function App() {
     }
   }, []);
 
+  const handleVersusIntroComplete = useCallback(() => {
+    if (stateRef.current.phase !== 'versus_intro') return;
+    stateRef.current = { ...stateRef.current, phase: 'wave_complete' };
+    setSnapshot({ ...stateRef.current });
+  }, []);
+
   const handlePause = useCallback(() => {
     const cur = stateRef.current.phase;
     stateRef.current = { ...stateRef.current, phase: cur === 'playing' ? 'paused' : 'playing' };
@@ -223,7 +229,7 @@ export default function App() {
   }, []);
 
   const handleStart = useCallback(() => {
-    stateRef.current = { ...stateRef.current, gameMode: 'single_player', phase: 'wave_complete' };
+    stateRef.current = { ...stateRef.current, gameMode: 'single_player', phase: 'versus_intro' };
     setSnapshot({ ...stateRef.current });
   }, []);
 
@@ -251,16 +257,18 @@ export default function App() {
         stateRef.current = { ...stateRef.current, selectedTowerType: null, selectedTowerId: null };
         setSnapshot({ ...stateRef.current });
       }
-      // Arrow key / A/D pan
-      if (e.key === 'ArrowRight' || e.key === 'd') {
-        stateRef.current = { ...stateRef.current, cameraX: Math.min(MAX_CAM_X, stateRef.current.cameraX + CELL_SIZE * 3) };
-        setSnapshot({ ...stateRef.current });
+      // Arrow key / A/D pan (disabled during matchup reel)
+      if (state.phase !== 'versus_intro') {
+        if (e.key === 'ArrowRight' || e.key === 'd') {
+          stateRef.current = { ...stateRef.current, cameraX: Math.min(MAX_CAM_X, stateRef.current.cameraX + CELL_SIZE * 3) };
+          setSnapshot({ ...stateRef.current });
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'a') {
+          stateRef.current = { ...stateRef.current, cameraX: Math.max(0, stateRef.current.cameraX - CELL_SIZE * 3) };
+          setSnapshot({ ...stateRef.current });
+        }
       }
-      if (e.key === 'ArrowLeft' || e.key === 'a') {
-        stateRef.current = { ...stateRef.current, cameraX: Math.max(0, stateRef.current.cameraX - CELL_SIZE * 3) };
-        setSnapshot({ ...stateRef.current });
-      }
-      if (TOWER_KEYS[e.key] && state.phase !== 'game_over' && state.phase !== 'victory') {
+      if (TOWER_KEYS[e.key] && state.phase !== 'game_over' && state.phase !== 'victory' && state.phase !== 'versus_intro') {
         const type = TOWER_KEYS[e.key];
         stateRef.current = {
           ...stateRef.current,
@@ -274,7 +282,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleStart, handleStartMatch, handlePause]);
 
-  const isGameActive = snapshot.phase !== 'menu';
+  const isGameActive = snapshot.phase !== 'menu' && snapshot.phase !== 'versus_intro';
 
   const gameChromeRef = useRef<HTMLDivElement>(null);
   const [chromeFit, setChromeFit] = useState<{ scale: number; boxW: number; boxH: number }>({
@@ -389,6 +397,7 @@ export default function App() {
               <GameOverlay
                 state={snapshot}
                 onStart={handleStart}
+                onVersusIntroComplete={handleVersusIntroComplete}
                 onRestart={handleRestart}
                 onResume={handlePause}
               />

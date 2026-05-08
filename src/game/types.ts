@@ -125,7 +125,7 @@ export type VisualEffect =
     };
 
 export interface GameState {
-  phase: 'menu' | 'playing' | 'paused' | 'wave_complete' | 'game_over' | 'victory';
+  phase: 'menu' | 'versus_intro' | 'playing' | 'paused' | 'wave_complete' | 'game_over' | 'victory';
   gameMode: 'single_player' | 'multi_player' | null;
   wave: number;
   maxWaves: number;

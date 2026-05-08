@@ -237,7 +237,7 @@ export function upgradeTower(state: GameState, towerId: string): GameState {
 export function deployAttackPackage(state: GameState, packageId: AttackPackageId): GameState {
   const def = ATTACK_PACKAGE_DEFS[packageId];
   if (!def) return state;
-  if (state.phase === 'menu' || state.phase === 'game_over' || state.phase === 'victory') return state;
+  if (state.phase === 'menu' || state.phase === 'versus_intro' || state.phase === 'game_over' || state.phase === 'victory') return state;
   if (state.offenseResource < def.cost) return state;
   if ((state.attackCooldowns[packageId] ?? 0) > 0) return state;
 
