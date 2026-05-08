@@ -1001,6 +1001,48 @@ function tickTowers(state: GameState, deltaMs: number): GameState {
       };
     }
 
+    const opponentHero = normalizeHero(state.opponentHero, 'opponent_hero', OPPONENT_HERO_START);
+    const canTargetOpponentHero = opponentHero.isAlive && distance(tower, opponentHero) <= tower.range;
+    if (canTargetOpponentHero) {
+      const interval = 1000 / tower.fireRate;
+      const lastFired = tower.lastFired + deltaMs;
+      const def = TOWER_DEFS[tower.type];
+
+      if (lastFired < interval) {
+        return {
+          ...tower,
+          targetId: opponentHero.id,
+          beamTargetId: null,
+          lastFired,
+          angle: angleTo(tower, opponentHero),
+        };
+      }
+
+      newProjectiles.push({
+        id: uid(),
+        type: def.projectileType,
+        x: tower.x,
+        y: tower.y,
+        targetId: opponentHero.id,
+        speed: def.projectileType === 'laser_beam' ? 600 : def.projectileType === 'lightning' ? 800 : 350,
+        damage: HERO_STRUCTURE_OR_HERO_DAMAGE,
+        towerId: tower.id,
+        splashRadius: 0,
+        color: def.accentColor,
+        size: def.projectileType === 'missile' ? 7 : def.projectileType === 'bullet' ? 4 : 3,
+        slowAmount: 0,
+        slowDuration: 0,
+      });
+
+      return {
+        ...tower,
+        targetId: opponentHero.id,
+        beamTargetId: null,
+        lastFired: 0,
+        angle: angleTo(tower, opponentHero),
+      };
+    }
+
     if (tower.type === 'laser') {
       const prevCycleMs = tower.laserCycleMs ?? 0;
       const nextCycleMs = (prevCycleMs + deltaMs) % LASER_CYCLE_MS;
@@ -1061,7 +1103,8 @@ function tickTowers(state: GameState, deltaMs: number): GameState {
     const interval = 1000 / tower.fireRate;
     if (deltaMs + tower.lastFired < interval) {
       // Track target angle even if not firing
-      const target = enemies.find(e => e.id === tower.targetId);
+      const target = enemies.find(e => e.id === tower.targetId)
+        ?? (tower.targetId === opponentHero.id && opponentHero.isAlive ? opponentHero : undefined);
       if (target) {
         return { ...tower, lastFired: tower.lastFired + deltaMs, angle: angleTo(tower, target) };
       }
@@ -1349,9 +1392,7 @@ function tickProjectiles(state: GameState, dt: number): GameState {
       const targetHero = isOpponentHeroHit ? opponentHero : hero;
       if (!targetHero.isAlive) continue;
 
-      const damage = hit.towerId === hero.id || hit.towerId === opponentHero.id
-        ? HERO_STRUCTURE_OR_HERO_DAMAGE
-        : hit.damage;
+      const damage = HERO_STRUCTURE_OR_HERO_DAMAGE;
       const nextHp = Math.max(0, targetHero.hp - damage);
       for (let i = 0; i < 6; i++) {
         const angle = (Math.PI * 2 * i) / 6;
