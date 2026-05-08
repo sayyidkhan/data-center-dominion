@@ -1,6 +1,6 @@
 import React from 'react';
-import type { GameState, TowerType } from '../game/types';
-import { CELL_SIZE, SELL_REFUND_RATE, TOWER_DEFS } from '../game/constants';
+import type { AttackPackageId, GameState, TowerType } from '../game/types';
+import { ATTACK_PACKAGE_DEFS, CELL_SIZE, SELL_REFUND_RATE, TOWER_DEFS } from '../game/constants';
 import { InspectMiniStat } from './InspectMiniStat';
 import { formatCompactCount } from '../formatCompactCount';
 
@@ -10,6 +10,7 @@ interface TowerShopProps {
   onUpgrade: (id: string) => void;
   onSell: (id: string) => void;
   onDeselect: () => void;
+  onDeployAttack: (id: AttackPackageId) => void;
 }
 
 function getTowerTraitLines(type: TowerType, level = 1): string[] {
@@ -100,7 +101,8 @@ export function TowerInspector({
   onUpgrade,
   onSell,
   onDeselect,
-}: Pick<TowerShopProps, 'state' | 'onUpgrade' | 'onSell' | 'onDeselect'>) {
+  onDeployAttack,
+}: Pick<TowerShopProps, 'state' | 'onUpgrade' | 'onSell' | 'onDeselect' | 'onDeployAttack'>) {
   const selectedTower = state.towers.find(t => t.id === state.selectedTowerId);
   const selectedType = state.selectedTowerType;
 
@@ -117,7 +119,7 @@ export function TowerInspector({
       ) : selectedType ? (
         <SelectedBuildPanel type={selectedType} />
       ) : (
-        <BriefingPlaceholder />
+        <AttackShopPanel state={state} onDeployAttack={onDeployAttack} />
       )}
     </div>
   );
@@ -156,6 +158,84 @@ function BriefingPlaceholder() {
             <InspectMiniStat label="DPS" value="—" muted />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AttackShopPanel({
+  state,
+  onDeployAttack,
+}: {
+  state: GameState;
+  onDeployAttack: (id: AttackPackageId) => void;
+}) {
+  const attackIds = Object.keys(ATTACK_PACKAGE_DEFS) as AttackPackageId[];
+  const playerAttackers = state.enemies.filter(enemy => enemy.owner === 'player').length;
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-base font-bold leading-tight text-red-300">Attack Ops</p>
+          <p className="mt-0.5 font-mono text-xs leading-snug text-white/45">
+            Threat {formatCompactCount(Math.floor(state.offenseResource))}/{formatCompactCount(state.maxOffenseResource)}
+          </p>
+        </div>
+        <span className="rounded bg-red-500/10 px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-wide text-red-300 ring-1 ring-red-400/25">
+          PvP
+        </span>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-0.5">
+        <div className="grid grid-cols-1 gap-1.5">
+          {attackIds.map(id => {
+            const def = ATTACK_PACKAGE_DEFS[id];
+            const cooldownMs = state.attackCooldowns[id] ?? 0;
+            const canAfford = state.offenseResource >= def.cost;
+            const disabled = cooldownMs > 0 || !canAfford || state.phase === 'game_over' || state.phase === 'victory';
+            const cooldownLabel = cooldownMs > 0 ? `${Math.ceil(cooldownMs / 1000)}s` : null;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onDeployAttack(id)}
+                disabled={disabled}
+                title={def.description}
+                className="flex min-h-[2.625rem] items-center justify-between gap-2 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2.5 py-1.5 text-left font-mono transition-colors hover:border-red-300/40 hover:bg-red-500/[0.14] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-bold text-white/85">{def.name}</span>
+                  <span className="block truncate text-[10px] text-white/38">
+                    DMG {def.damage} · {Math.round(def.travelMs / 1000)}s
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-xs font-bold text-red-200">
+                  {cooldownLabel ?? `◆ ${formatCompactCount(def.cost)}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-white/10 pt-2">
+        <div className="flex items-center justify-between gap-2 font-mono text-xs">
+          <span className="text-white/40">Opponent HP</span>
+          <span className="font-bold tabular-nums text-red-300">
+            {state.opponentBaseHp}/{state.maxOpponentBaseHp}
+          </span>
+        </div>
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-dark-600">
+          <div
+            className="h-full rounded-full bg-red-400 transition-all"
+            style={{ width: `${(state.opponentBaseHp / state.maxOpponentBaseHp) * 100}%` }}
+          />
+        </div>
+        <p className="mt-1.5 truncate font-mono text-[10px] text-white/35">
+          {playerAttackers > 0 ? `${playerAttackers} friendly units advancing.` : 'Deploy units onto the upper road.'}
+        </p>
       </div>
     </div>
   );

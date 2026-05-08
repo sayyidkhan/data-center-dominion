@@ -1,9 +1,10 @@
-import type { EnemyDef, EnemyType, TowerDef, TowerType } from './types';
+import type { AttackPackageDef, AttackPackageId, EnemyDef, EnemyType, TowerDef, TowerType } from './types';
 import combatData from '../data/combat.json';
 import economyData from '../data/economy.json';
 import enemiesData from '../data/enemies.json';
 import heroData from '../data/hero.json';
 import mapData from '../data/map.json';
+import pvpAttacksData from '../data/pvp-attacks.json';
 import towersData from '../data/towers.json';
 import wavesData from '../data/waves.json';
 
@@ -25,6 +26,10 @@ type HeroData = {
 type EconomyData = {
   startingGold: number;
   startingLives: number;
+  startingOffenseResource: number;
+  maxOffenseResource: number;
+  offenseResourcePerSecond: number;
+  aiAttackIntervalMs: number;
   maxWaves: number;
   sellRefundRate: number;
   scorePerReward: number;
@@ -40,6 +45,7 @@ type MapData = {
   footerHeight: number;
   footerGridMinWidth: number;
   pathWaypoints: [number, number][];
+  attackPathWaypoints: [number, number][];
 };
 
 type CombatData = {
@@ -85,6 +91,14 @@ export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
 export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
 export const MAP_W = CELL_SIZE * GRID_COLS;
 export const MAP_H = CELL_SIZE * GRID_ROWS;
+export const PLAYER_BUILD_MIN_COL = 0;
+export const PLAYER_BUILD_MAX_COL = Math.floor((GRID_COLS * 2) / 3) - 1;
+export const ENEMY_BUILD_MIN_COL = Math.floor(GRID_COLS / 3);
+export const ENEMY_BUILD_MAX_COL = GRID_COLS - 1;
+export const isPlayerBuildableCell = (gridX: number) =>
+  gridX >= PLAYER_BUILD_MIN_COL && gridX <= PLAYER_BUILD_MAX_COL;
+export const isEnemyBuildableCell = (gridX: number) =>
+  gridX >= ENEMY_BUILD_MIN_COL && gridX <= ENEMY_BUILD_MAX_COL;
 
 /** Fixed HUD strip height — room for readable labels + stats + controls. */
 export const HUD_SLOT_H = MAP_CONFIG.hudSlotHeight;
@@ -101,6 +115,10 @@ export const CANVAS_HEIGHT = VIEWPORT_H;
 
 export const STARTING_GOLD = ECONOMY_CONFIG.startingGold;
 export const STARTING_LIVES = ECONOMY_CONFIG.startingLives;
+export const STARTING_OFFENSE_RESOURCE = ECONOMY_CONFIG.startingOffenseResource;
+export const MAX_OFFENSE_RESOURCE = ECONOMY_CONFIG.maxOffenseResource;
+export const OFFENSE_RESOURCE_PER_SECOND = ECONOMY_CONFIG.offenseResourcePerSecond;
+export const AI_ATTACK_INTERVAL_MS = ECONOMY_CONFIG.aiAttackIntervalMs;
 export const MAX_WAVES = ECONOMY_CONFIG.maxWaves;
 export const SELL_REFUND_RATE = ECONOMY_CONFIG.sellRefundRate;
 export const SCORE_PER_REWARD = ECONOMY_CONFIG.scorePerReward;
@@ -117,10 +135,12 @@ export const HERO_PROJECTILE = HERO_CONFIG.projectile;
 // Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
 // Path snakes then ends with a long straight horizontal run at row 7 into the bay.
 export const PATH_WAYPOINTS = MAP_CONFIG.pathWaypoints;
+export const ATTACK_PATH_WAYPOINTS = MAP_CONFIG.attackPathWaypoints;
 
 export const TOWER_DEFS = towersData as Record<TowerType, TowerDef>;
 export const ENEMY_DEFS = enemiesData as Record<EnemyType, EnemyDef>;
 export const WAVE_DEFS = wavesData as WaveDef[];
+export const ATTACK_PACKAGE_DEFS = pvpAttacksData as Record<AttackPackageId, AttackPackageDef>;
 
 export const LASER_ACTIVE_MS = COMBAT_CONFIG.laser.activeMs;
 export const LASER_COOLDOWN_MS = COMBAT_CONFIG.laser.cooldownMs;

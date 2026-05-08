@@ -14,7 +14,7 @@ The split JSON files are the authoring source because they are easier to review 
 - `version`: identifies the game data version.
 - `contentHash`: SHA-256 hash of the version and source data.
 - `sources`: lists the source files used to build the bundle.
-- `data`: contains the merged map, economy, hero, tower, enemy, wave, and combat data.
+- `data`: contains the merged map, economy, hero, tower, enemy, wave, combat, and PvP attack data.
 
 Do not edit `game-data.generated.json` manually. Edit the source JSON files, then run:
 
@@ -28,6 +28,24 @@ This also runs automatically before:
 - `npm run build`
 - `npm run start`
 
+## `pvp-attacks.json`
+
+Defines attack packages used by the local PvP proof of concept.
+
+Used for:
+
+- Attack package names.
+- Offensive resource costs.
+- Cooldowns.
+- Travel/combat tuning for attack packages.
+- Base damage reference for future balancing.
+- Enemy payloads that spawn player-owned units on the visible attack road.
+
+Backend relevance:
+
+- A server can validate attack purchases, cooldowns, payloads, and damage.
+- The same payload metadata spawns real units in the local PvP POC and can later be validated by an authoritative server.
+
 ## `map.json`
 
 Defines the physical battlefield layout and UI shell dimensions.
@@ -38,7 +56,8 @@ Used for:
 - Grid width and height.
 - Visible viewport width in grid columns.
 - HUD/footer layout heights.
-- Path waypoints that enemies follow.
+- Defensive path waypoints that opponent units follow toward the player base.
+- Attack path waypoints that player-deployed units follow toward the opponent base.
 
 Backend relevance:
 

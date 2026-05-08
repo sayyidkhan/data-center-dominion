@@ -1,5 +1,5 @@
 import type { GameState, Tower, Particle, VisualEffect, Vec2, Hero } from './types';
-import { CELL_SIZE, GRID_COLS, GRID_ROWS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS, LASER_ACTIVE_MS } from './constants';
+import { CELL_SIZE, GRID_COLS, GRID_ROWS, MAP_W, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS, LASER_ACTIVE_MS, isPlayerBuildableCell } from './constants';
 
 export function renderGame(
   ctx: CanvasRenderingContext2D,
@@ -23,9 +23,11 @@ export function renderGame(
   // Translate by camera offset
   ctx.translate(-state.cameraX, 0);
 
+  drawMapZones(ctx);
   drawGrid(ctx, state, hoveredCell, state.cameraX, time);
   drawPath(ctx, state, time);
-  drawDataCenter(ctx, state, time);
+  drawDataCenter(ctx, state, time, 'player');
+  drawDataCenter(ctx, state, time, 'opponent');
   drawSpawnPortal(ctx, state, time);
   drawTowers(ctx, state, time);
   drawHero(ctx, state.hero, time);
@@ -194,6 +196,70 @@ function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
   ctx.restore();
 }
 
+function drawMapZones(ctx: CanvasRenderingContext2D) {
+  const third = MAP_W / 3;
+  const zones = [
+    {
+      x: 0,
+      w: third,
+      label: 'YOUR SIDE',
+      fill: 'rgba(0, 148, 255, 0.075)',
+      edge: 'rgba(0, 212, 255, 0.3)',
+      text: 'rgba(94, 203, 255, 0.4)',
+    },
+    {
+      x: third,
+      w: third,
+      label: 'CONTESTED MIDDLE',
+      fill: 'rgba(255, 204, 0, 0.06)',
+      edge: 'rgba(255, 204, 0, 0.26)',
+      text: 'rgba(255, 220, 120, 0.36)',
+    },
+    {
+      x: third * 2,
+      w: MAP_W - third * 2,
+      label: 'OPPONENT SIDE',
+      fill: 'rgba(255, 60, 100, 0.08)',
+      edge: 'rgba(255, 92, 120, 0.32)',
+      text: 'rgba(255, 150, 165, 0.42)',
+    },
+  ];
+
+  ctx.save();
+  for (const zone of zones) {
+    ctx.fillStyle = zone.fill;
+    ctx.fillRect(zone.x, 0, zone.w, VIEWPORT_H);
+
+    const grad = ctx.createLinearGradient(zone.x, 0, zone.x + zone.w, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0.018)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.06)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(zone.x, 0, zone.w, VIEWPORT_H);
+
+    ctx.strokeStyle = zone.edge;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 10]);
+    ctx.beginPath();
+    ctx.moveTo(zone.x + zone.w, 0);
+    ctx.lineTo(zone.x + zone.w, VIEWPORT_H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = zone.text;
+    ctx.fillText(zone.label, zone.x + zone.w / 2, 10);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.022)';
+    for (let x = zone.x + 18; x < zone.x + zone.w; x += 72) {
+      ctx.fillRect(x, 0, 1, VIEWPORT_H);
+    }
+  }
+  ctx.restore();
+}
+
 function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, hoveredCell: { x: number; y: number } | null, cameraX: number, time: number) {
   // Only draw cols visible in viewport
   const startCol = Math.floor(cameraX / CELL_SIZE);
@@ -208,10 +274,13 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, hoveredCell: 
       const y = row * CELL_SIZE;
 
       const isHovered = hoveredCell && hoveredCell.x === col && hoveredCell.y === row;
-      const canPlace = cell === 'empty' && state.selectedTowerType !== null;
+      const canPlace = cell === 'empty' && state.selectedTowerType !== null && isPlayerBuildableCell(col);
 
       if (isHovered && canPlace) {
         ctx.fillStyle = 'rgba(0, 212, 255, 0.12)';
+        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+      } else if (isHovered && state.selectedTowerType && cell === 'empty' && !isPlayerBuildableCell(col)) {
+        ctx.fillStyle = 'rgba(255, 68, 68, 0.08)';
         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
       } else if (isHovered) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
@@ -240,13 +309,16 @@ function drawPath(ctx: CanvasRenderingContext2D, state: GameState, time: number)
     }
   }
 
-  // Animated dashed center line
-  ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
+  drawPathLine(ctx, state.path, 'rgba(0, 212, 255, 0.2)', time);
+  drawPathLine(ctx, state.attackPath, 'rgba(255, 92, 120, 0.32)', -time);
+}
+
+function drawPathLine(ctx: CanvasRenderingContext2D, path: Vec2[], color: string, time: number) {
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([4, 8]);
   ctx.lineDashOffset = -(time * 40 % 12);
   ctx.beginPath();
-  const path = state.path;
   if (path.length > 0) {
     ctx.moveTo(path[0].x, path[0].y);
     for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
@@ -256,22 +328,25 @@ function drawPath(ctx: CanvasRenderingContext2D, state: GameState, time: number)
   ctx.lineDashOffset = 0;
 }
 
-function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
+function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: number, side: 'player' | 'opponent') {
   const S = CELL_SIZE;
-  const pathEnd = state.path[state.path.length - 1];
+  const isOpponent = side === 'opponent';
+  const pathEnd = isOpponent ? state.attackPath[state.attackPath.length - 1] : state.path[state.path.length - 1];
   const pulse  = Math.sin(time * 2.1) * 0.18 + 0.82;
   const pulse2 = Math.sin(time * 1.4 + 1.2) * 0.18 + 0.82;
 
   // ─── Layout anchors ────────────────────────────────────────────────────────
-  // The campus right edge aligns with the path's last cell so enemies walk into
-  // the loading bay.  The whole complex spans 3 cells wide × ~10 cells tall.
+  // Player base is fixed flush to the left edge so PvP reads as left vs right.
   const campusW  = S * 3.0;
   const campusH  = S * 9.5;
-  const campusR  = pathEnd.x + S * 0.5;          // right edge (bay protrudes to here)
-  const campusL  = campusR - campusW;
+  const campusL  = isOpponent ? MAP_W - campusW : 0;
+  const campusR  = campusL + campusW;
   const campusT  = pathEnd.y - campusH / 2;
 
   ctx.save();
+  if (isOpponent) {
+    ctx.filter = 'hue-rotate(142deg) saturate(1.25) brightness(1.06)';
+  }
 
   // ─── Outer campus glow — two-layer: soft wide + tight bright ──────────────
   ctx.shadowColor = '#00d4ff';
@@ -546,10 +621,10 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     ctx.stroke();
   }
 
-  // ─── LOADING BAY — right edge, centred on pathEnd.y ────────────────────────
+  // ─── LOADING BAY — faces the battlefield, centred on the active lane ───────
   const bayW  = S * 0.7;
   const bayH  = S * 1.1;
-  const bayX  = campusR - bayW;
+  const bayX  = isOpponent ? campusL : campusR - bayW;
   const bayY  = pathEnd.y - bayH / 2;
 
   // Bay recess in main body
@@ -629,14 +704,16 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
 
   // Intake beam — wider, multi-layer glow when door is open
   const beamAlpha2 = doorOpen * (Math.sin(time * 5) * 0.2 + 0.6);
-  const bGrad2 = ctx.createLinearGradient(bayX + bayW, pathEnd.y, bayX + bayW + S * 1.5, pathEnd.y);
+  const beamStartX = isOpponent ? bayX : bayX + bayW;
+  const beamEndX = isOpponent ? bayX - S * 1.5 : bayX + bayW + S * 1.5;
+  const bGrad2 = ctx.createLinearGradient(beamStartX, pathEnd.y, beamEndX, pathEnd.y);
   bGrad2.addColorStop(0,   `rgba(0,212,255,${beamAlpha2 * 0.8})`);
   bGrad2.addColorStop(0.4, `rgba(0,212,255,${beamAlpha2 * 0.35})`);
   bGrad2.addColorStop(1,   'rgba(0,212,255,0)');
   ctx.shadowColor = '#00d4ff';
   ctx.shadowBlur  = 10 * beamAlpha2;
   ctx.fillStyle   = bGrad2;
-  ctx.fillRect(bayX + bayW, pathEnd.y - 5, S * 1.5, 10);
+  ctx.fillRect(isOpponent ? bayX - S * 1.5 : bayX + bayW, pathEnd.y - 5, S * 1.5, 10);
   ctx.shadowBlur  = 0;
 
   // ─── Antenna / comms mast on rooftop ────────────────────────────────────────
@@ -673,35 +750,42 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
 }
 
 function drawSpawnPortal(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
-  const path = state.path;
-  if (path.length === 0) return;
-  const start = path[0];
+  drawPortal(ctx, state.path[0], time, '#ff4444', 'SPAWN');
+  drawPortal(ctx, state.attackPath[0], time + 0.6, '#ff5c78', 'LAUNCH');
+}
 
-  ctx.save();
-  ctx.translate(start.x, start.y);
-
+function drawPortal(ctx: CanvasRenderingContext2D, point: Vec2 | undefined, time: number, color: string, label: string) {
+  if (!point) return;
   const pulse = Math.sin(time * 4) * 0.3 + 0.7;
 
+  ctx.save();
+  ctx.translate(point.x, point.y);
+
   // Outer ring
-  ctx.strokeStyle = `rgba(255, 68, 68, ${pulse})`;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = pulse;
   ctx.lineWidth = 2;
-  ctx.shadowColor = '#ff4444';
+  ctx.shadowColor = color;
   ctx.shadowBlur = 16 * pulse;
   ctx.beginPath();
   ctx.arc(0, 0, 16, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.globalAlpha = 1;
 
   // Inner fill
   const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 14);
-  grad.addColorStop(0, `rgba(180, 0, 0, ${0.7 * pulse})`);
+  grad.addColorStop(0, color);
   grad.addColorStop(1, 'rgba(80, 0, 0, 0)');
+  ctx.globalAlpha = 0.7 * pulse;
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(0, 0, 14, 0, Math.PI * 2);
   ctx.fill();
+  ctx.globalAlpha = 1;
 
   // Rotating rune marks
-  ctx.strokeStyle = `rgba(255, 100, 100, ${0.6 * pulse})`;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.65 * pulse;
   ctx.lineWidth = 1;
   ctx.shadowBlur = 0;
   for (let i = 0; i < 6; i++) {
@@ -711,15 +795,15 @@ function drawSpawnPortal(ctx: CanvasRenderingContext2D, state: GameState, time: 
     ctx.lineTo(Math.cos(a) * 17, Math.sin(a) * 17);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 
   ctx.shadowBlur = 0;
 
-  // "SPAWN" label
-  ctx.fillStyle = '#ff6666';
+  ctx.fillStyle = color;
   ctx.font = 'bold 8px JetBrains Mono, monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText('SPAWN', 0, 20);
+  ctx.fillText(label, 0, 20);
 
   ctx.restore();
 }
@@ -887,14 +971,15 @@ function drawEnemies(ctx: CanvasRenderingContext2D, state: GameState, time: numb
     ctx.save();
     ctx.translate(x, y);
 
+    const ownedByPlayer = enemy.owner === 'player';
     if (enemy.isBoss) {
       const pulse = Math.sin(time * 3) * 0.2 + 1;
-      ctx.shadowColor = def.color;
+      ctx.shadowColor = ownedByPlayer ? '#ff6b7d' : def.color;
       ctx.shadowBlur = 20 * pulse;
     }
 
-    ctx.fillStyle = def.color;
-    ctx.strokeStyle = '#fff';
+    ctx.fillStyle = ownedByPlayer ? tintColor(def.color, '#ff6b7d', 0.45) : def.color;
+    ctx.strokeStyle = ownedByPlayer ? '#ffd1dc' : '#fff';
     ctx.lineWidth = 1;
 
     if (enemy.type === 'tank') {
@@ -933,6 +1018,21 @@ function drawEnemies(ctx: CanvasRenderingContext2D, state: GameState, time: numb
     }
 
     ctx.shadowBlur = 0;
+
+    if (ownedByPlayer) {
+      ctx.strokeStyle = 'rgba(255, 107, 125, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#ffccd5';
+      ctx.beginPath();
+      ctx.moveTo(r + 7, 0);
+      ctx.lineTo(r + 1, -4);
+      ctx.lineTo(r + 1, 4);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     if (enemy.frozenTimer > 0) {
       ctx.strokeStyle = 'rgba(178, 235, 242, 0.95)';
@@ -994,6 +1094,21 @@ function drawEnemies(ctx: CanvasRenderingContext2D, state: GameState, time: numb
 
     ctx.restore();
   }
+}
+
+function tintColor(hex: string, tint: string, amount: number) {
+  const parse = (value: string) => {
+    const raw = value.replace('#', '');
+    return {
+      r: parseInt(raw.slice(0, 2), 16),
+      g: parseInt(raw.slice(2, 4), 16),
+      b: parseInt(raw.slice(4, 6), 16),
+    };
+  };
+  const a = parse(hex);
+  const b = parse(tint);
+  const mix = (from: number, to: number) => Math.round(from + (to - from) * amount);
+  return `rgb(${mix(a.r, b.r)}, ${mix(a.g, b.g)}, ${mix(a.b, b.b)})`;
 }
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
@@ -1326,7 +1441,7 @@ function drawRangePreview(ctx: CanvasRenderingContext2D, state: GameState, hover
     const cx = hoveredCell.x * CELL_SIZE + CELL_SIZE / 2;
     const cy = hoveredCell.y * CELL_SIZE + CELL_SIZE / 2;
     const range = def.range * CELL_SIZE;
-    const canPlace = state.grid[hoveredCell.y]?.[hoveredCell.x] === 'empty';
+    const canPlace = state.grid[hoveredCell.y]?.[hoveredCell.x] === 'empty' && isPlayerBuildableCell(hoveredCell.x);
 
     ctx.strokeStyle = canPlace ? 'rgba(0, 255, 136, 0.5)' : 'rgba(255, 68, 68, 0.5)';
     ctx.fillStyle = canPlace ? 'rgba(0, 255, 136, 0.06)' : 'rgba(255, 68, 68, 0.06)';

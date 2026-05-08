@@ -158,6 +158,7 @@ function WaveCompleteScreen({ state, onNext }: { state: GameState; onNext: () =>
 }
 
 function GameOverScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
+  const baseDestroyed = state.playerBaseHp <= 0;
   return (
     <div className="pointer-events-auto flex flex-col items-center gap-5">
       <div className="absolute inset-0 bg-dark-900/75 backdrop-blur-sm" />
@@ -166,8 +167,13 @@ function GameOverScreen({ state, onRestart }: { state: GameState; onRestart: () 
         <h2 className="text-3xl font-black text-red-400 uppercase tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif', textShadow: '0 0 20px rgba(255,68,68,0.5)' }}>
           Game Over
         </h2>
+        <p className="text-white/50 text-sm font-mono">
+          {baseDestroyed ? 'Your data center was destroyed.' : 'The defense line collapsed.'}
+        </p>
         <div className="flex flex-col gap-2 text-center">
           <StatLine label="Reached Wave" value={`${state.wave} / ${MAX_WAVES}`} />
+          <StatLine label="Base HP" value={`${state.playerBaseHp} / ${state.maxPlayerBaseHp}`} />
+          <StatLine label="Enemy Core" value={`${state.opponentBaseHp} / ${state.maxOpponentBaseHp}`} />
           <StatLine label="Final Score" value={formatCompactCount(state.score)} />
           <StatLine label="Total Kills" value={formatCompactCount(state.totalKills)} />
           <StatLine label="Towers Built" value={state.towers.length} />
@@ -185,6 +191,7 @@ function GameOverScreen({ state, onRestart }: { state: GameState; onRestart: () 
 }
 
 function VictoryScreen({ state, onRestart }: { state: GameState; onRestart: () => void }) {
+  const opponentDestroyed = state.opponentBaseHp <= 0;
   return (
     <div className="pointer-events-auto flex flex-col items-center gap-5">
       <div className="absolute inset-0 bg-dark-900/70 backdrop-blur-sm" />
@@ -193,8 +200,12 @@ function VictoryScreen({ state, onRestart }: { state: GameState; onRestart: () =
         <h2 className="text-3xl font-black uppercase tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif', color: '#ffcc00', textShadow: '0 0 30px rgba(255,204,0,0.6)' }}>
           Victory!
         </h2>
-        <p className="text-white/50 text-sm font-mono">All {MAX_WAVES} waves defeated!</p>
+        <p className="text-white/50 text-sm font-mono">
+          {opponentDestroyed ? 'Opponent data center destroyed!' : `All ${MAX_WAVES} waves defeated!`}
+        </p>
         <div className="flex flex-col gap-2 text-center">
+          <StatLine label="Base HP" value={`${state.playerBaseHp} / ${state.maxPlayerBaseHp}`} />
+          <StatLine label="Enemy Core" value={`${state.opponentBaseHp} / ${state.maxOpponentBaseHp}`} />
           <StatLine label="Final Score" value={formatCompactCount(state.score)} />
           <StatLine label="Total Kills" value={formatCompactCount(state.totalKills)} />
           <StatLine label="Gold Earned" value={formatCompactCount(state.totalGoldEarned)} />

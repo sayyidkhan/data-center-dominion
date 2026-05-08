@@ -1,20 +1,27 @@
-import type { GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2, TowerType, Hero } from './types';
+import type { AttackPackageId, GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2, TowerType, Hero } from './types';
 import {
   CELL_SIZE, GRID_COLS, GRID_ROWS, STARTING_GOLD, STARTING_LIVES, MAX_WAVES,
   TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS, MAP_W, MAP_H, VIEWPORT_W, HERO_START, HERO_STATS,
+  AI_ATTACK_INTERVAL_MS, ATTACK_PACKAGE_DEFS,
   CANNON_ARMOR_BREAK, CANNON_DEBUFF_CHANCE, CANNON_DEBUFF_DURATION, CANNON_EXPOSED_BONUS,
   FROST_FREEZE_CHANCE, FROST_FREEZE_MS, HERO_PROJECTILE, LASER_ACTIVE_MS, LASER_CYCLE_MS,
+  isPlayerBuildableCell,
+  MAX_OFFENSE_RESOURCE, OFFENSE_RESOURCE_PER_SECOND,
   SCORE_PER_REWARD, SELL_REFUND_RATE, TESLA_CHAIN_RANGE, UPGRADE_DAMAGE_MULTIPLIER,
-  UPGRADE_FIRE_RATE_MULTIPLIER, UPGRADE_RANGE_MULTIPLIER, WAVE_HP_SCALE_PER_WAVE,
+  UPGRADE_FIRE_RATE_MULTIPLIER, UPGRADE_RANGE_MULTIPLIER, WAVE_HP_SCALE_PER_WAVE, STARTING_OFFENSE_RESOURCE,
 } from './constants';
-import { buildPath, buildPathGrid, distance, angleTo } from './pathfinding';
+import { buildAttackPath, buildPath, buildPathGrid, distance, angleTo } from './pathfinding';
 
 let nextId = 1;
 const uid = () => `id_${nextId++}`;
 
 export function createInitialState(): GameState {
   const path = buildPath();
+  const attackPath = buildAttackPath();
   const grid = buildPathGrid(GRID_COLS, GRID_ROWS);
+  const attackCooldowns = Object.fromEntries(
+    (Object.keys(ATTACK_PACKAGE_DEFS) as AttackPackageId[]).map(id => [id, 0])
+  ) as Record<AttackPackageId, number>;
   // Start camera showing the data center (left side of map)
   return {
     phase: 'menu',
@@ -22,6 +29,14 @@ export function createInitialState(): GameState {
     maxWaves: MAX_WAVES,
     lives: STARTING_LIVES,
     maxLives: STARTING_LIVES,
+    playerBaseHp: STARTING_LIVES,
+    maxPlayerBaseHp: STARTING_LIVES,
+    opponentBaseHp: STARTING_LIVES,
+    maxOpponentBaseHp: STARTING_LIVES,
+    offenseResource: STARTING_OFFENSE_RESOURCE,
+    maxOffenseResource: MAX_OFFENSE_RESOURCE,
+    attackCooldowns,
+    aiAttackTimer: AI_ATTACK_INTERVAL_MS,
     gold: STARTING_GOLD,
     score: 0,
     towers: [],
@@ -45,6 +60,7 @@ export function createInitialState(): GameState {
     particles: [],
     effects: [],
     path,
+    attackPath,
     grid,
     selectedTowerType: null,
     selectedTowerId: null,
@@ -81,6 +97,7 @@ export function placeTower(state: GameState, gridX: number, gridY: number, type:
   const def = TOWER_DEFS[type];
   if (state.gold < def.cost) return state;
   if (gridX < 0 || gridX >= GRID_COLS || gridY < 0 || gridY >= GRID_ROWS) return state;
+  if (!isPlayerBuildableCell(gridX)) return state;
   if (state.grid[gridY][gridX] !== 'empty') return state;
 
   const newGrid = state.grid.map(row => [...row]);
@@ -159,6 +176,29 @@ export function upgradeTower(state: GameState, towerId: string): GameState {
   };
 }
 
+export function deployAttackPackage(state: GameState, packageId: AttackPackageId): GameState {
+  const def = ATTACK_PACKAGE_DEFS[packageId];
+  if (!def) return state;
+  if (state.phase === 'menu' || state.phase === 'game_over' || state.phase === 'victory') return state;
+  if (state.offenseResource < def.cost) return state;
+  if ((state.attackCooldowns[packageId] ?? 0) > 0) return state;
+
+  return {
+    ...state,
+    offenseResource: state.offenseResource - def.cost,
+    attackCooldowns: {
+      ...state.attackCooldowns,
+      [packageId]: def.cooldownMs,
+    },
+    enemies: [
+      ...state.enemies,
+      ...def.payload.flatMap(group =>
+        Array.from({ length: group.count }, () => spawnEnemy(state, group.type, 'player'))
+      ),
+    ],
+  };
+}
+
 export function startWave(state: GameState): GameState {
   if (state.phase !== 'playing' && state.phase !== 'wave_complete') return state;
   const waveIndex = state.wave;
@@ -183,14 +223,21 @@ export function startWave(state: GameState): GameState {
   };
 }
 
-function spawnEnemy(state: GameState, type: Parameters<typeof ENEMY_DEFS['grunt']['type'] extends infer T ? (t: T) => void : never>[0]): Enemy {
+function spawnEnemy(
+  state: GameState,
+  type: Parameters<typeof ENEMY_DEFS['grunt']['type'] extends infer T ? (t: T) => void : never>[0],
+  owner: Enemy['owner'] = 'opponent'
+): Enemy {
   const def = ENEMY_DEFS[type as keyof typeof ENEMY_DEFS];
   const waveScale = 1 + (state.wave - 1) * WAVE_HP_SCALE_PER_WAVE;
+  const path = owner === 'player' ? state.attackPath : state.path;
   return {
     id: uid(),
     type: type as Enemy['type'],
-    x: state.path[0].x,
-    y: state.path[0].y,
+    owner,
+    pathRole: owner === 'player' ? 'attack' : 'defense',
+    x: path[0].x,
+    y: path[0].y,
     hp: Math.floor(def.hp * waveScale),
     maxHp: Math.floor(def.hp * waveScale),
     speed: def.speed,
@@ -214,19 +261,22 @@ export function tickGame(state: GameState, deltaMs: number): GameState {
   if (state.phase !== 'playing') return state;
 
   const dt = (deltaMs / 1000) * state.gameSpeed;
+  const scaledMs = deltaMs * state.gameSpeed;
   let s = { ...state };
 
+  s = tickPvpMeta(s, scaledMs);
+
   // Spawn enemies
-  s = tickSpawning(s, deltaMs * state.gameSpeed);
+  s = tickSpawning(s, scaledMs);
 
   // Move enemies
   s = tickEnemies(s, dt);
 
   // Hero movement and machine-gun support fire
-  s = tickHero(s, dt, deltaMs * state.gameSpeed);
+  s = tickHero(s, dt, scaledMs);
 
   // Tower targeting & firing
-  s = tickTowers(s, deltaMs * state.gameSpeed);
+  s = tickTowers(s, scaledMs);
 
   // Move projectiles
   s = tickProjectiles(s, dt);
@@ -242,10 +292,10 @@ export function tickGame(state: GameState, deltaMs: number): GameState {
     const waveDef = WAVE_DEFS[s.wave - 1];
     s = {
       ...s,
-      phase: s.wave >= MAX_WAVES ? 'victory' : 'wave_complete',
+      phase: s.opponentBaseHp <= 0 ? 'victory' : s.wave >= MAX_WAVES ? 'victory' : 'wave_complete',
       gold: s.gold + waveDef.goldBonus,
       totalGoldEarned: s.totalGoldEarned + waveDef.goldBonus,
-      score: s.score + waveDef.goldBonus * 10,
+      score: s.score + waveDef.goldBonus * SCORE_PER_REWARD,
       projectiles: [],
       particles: [],
       effects: [],
@@ -253,6 +303,52 @@ export function tickGame(state: GameState, deltaMs: number): GameState {
   }
 
   return s;
+}
+
+function tickPvpMeta(state: GameState, elapsedMs: number): GameState {
+  let s = {
+    ...state,
+    offenseResource: Math.min(
+      state.maxOffenseResource,
+      state.offenseResource + OFFENSE_RESOURCE_PER_SECOND * (elapsedMs / 1000)
+    ),
+    attackCooldowns: Object.fromEntries(
+      (Object.entries(state.attackCooldowns) as [AttackPackageId, number][])
+        .map(([id, ms]) => [id, Math.max(0, ms - elapsedMs)])
+    ) as Record<AttackPackageId, number>,
+    aiAttackTimer: state.aiAttackTimer - elapsedMs,
+  };
+
+  if (s.phase !== 'playing') return s;
+
+  while (s.aiAttackTimer <= 0) {
+    s = spawnAiAttack(s);
+    s.aiAttackTimer += AI_ATTACK_INTERVAL_MS;
+  }
+
+  return s;
+}
+
+function spawnAiAttack(state: GameState): GameState {
+  const attackIds: AttackPackageId[] =
+    state.wave >= 10
+      ? ['boss_signal', 'tank_push', 'swarm_burst', 'speeder_rush', 'grunt_pack']
+      : state.wave >= 6
+        ? ['tank_push', 'swarm_burst', 'speeder_rush', 'grunt_pack']
+        : state.wave >= 3
+          ? ['speeder_rush', 'swarm_burst', 'grunt_pack']
+          : ['grunt_pack'];
+
+  const attackId = attackIds[Math.floor(Math.random() * attackIds.length)];
+  const attack = ATTACK_PACKAGE_DEFS[attackId];
+  const newEnemies = attack.payload.flatMap(group =>
+    Array.from({ length: group.count }, () => spawnEnemy(state, group.type, 'opponent'))
+  );
+
+  return {
+    ...state,
+    enemies: [...state.enemies, ...newEnemies],
+  };
 }
 
 function tickSpawning(state: GameState, elapsedMs: number): GameState {
@@ -276,7 +372,8 @@ function tickSpawning(state: GameState, elapsedMs: number): GameState {
 }
 
 function tickEnemies(state: GameState, dt: number): GameState {
-  let livesLost = 0;
+  let playerDamage = 0;
+  let opponentDamage = 0;
   const alive: Enemy[] = [];
 
   for (const enemy of state.enemies) {
@@ -309,10 +406,11 @@ function tickEnemies(state: GameState, dt: number): GameState {
     let remaining = speed * dt;
     let pi = e.pathIndex;
     let pp = e.pathProgress;
+    const path = e.owner === 'player' ? state.attackPath : state.path;
 
-    while (remaining > 0 && pi < state.path.length - 1) {
-      const from = state.path[pi];
-      const to = state.path[pi + 1];
+    while (remaining > 0 && pi < path.length - 1) {
+      const from = path[pi];
+      const to = path[pi + 1];
       const segLen = distance(from, to);
       const distLeft = segLen * (1 - pp);
 
@@ -326,14 +424,14 @@ function tickEnemies(state: GameState, dt: number): GameState {
       }
     }
 
-    if (pi >= state.path.length - 1) {
-      // Reached end
-      livesLost++;
+    if (pi >= path.length - 1) {
+      if (e.owner === 'player') opponentDamage += 1;
+      else playerDamage += 1;
       continue;
     }
 
-    const from = state.path[pi];
-    const to = state.path[pi + 1];
+    const from = path[pi];
+    const to = path[pi + 1];
     e.x = from.x + (to.x - from.x) * pp;
     e.y = from.y + (to.y - from.y) * pp;
     e.pathIndex = pi;
@@ -344,8 +442,14 @@ function tickEnemies(state: GameState, dt: number): GameState {
   return {
     ...state,
     enemies: alive,
-    lives: Math.max(0, state.lives - livesLost),
-    phase: state.lives - livesLost <= 0 ? 'game_over' : state.phase,
+    lives: Math.max(0, state.lives - playerDamage),
+    playerBaseHp: Math.max(0, state.playerBaseHp - playerDamage),
+    opponentBaseHp: Math.max(0, state.opponentBaseHp - opponentDamage),
+    phase: state.playerBaseHp - playerDamage <= 0
+      ? 'game_over'
+      : state.opponentBaseHp - opponentDamage <= 0
+        ? 'victory'
+        : state.phase,
   };
 }
 
@@ -354,7 +458,7 @@ function findBestTarget(source: Pick<Tower, 'x' | 'y' | 'range'> | Pick<Hero, 'x
   let bestProgress = -1;
 
   for (const enemy of enemies) {
-    if (!enemy.isAlive) continue;
+    if (!enemy.isAlive || enemy.owner !== 'opponent') continue;
     const dist = distance(source, enemy);
     if (dist <= source.range) {
       const prog = enemy.pathIndex + enemy.pathProgress;

@@ -56,8 +56,8 @@ function LivesRing({ value, max, pct, color }: { value: number; max: number; pct
   return (
     <div
       className="relative h-10 w-10 shrink-0"
-      title={`${value} / ${max} lives`}
-      aria-label={`Lives ${value} of ${max}`}
+      title={`${value} / ${max} HP`}
+      aria-label={`Base HP ${value} of ${max}`}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden>
         <circle
@@ -116,8 +116,9 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
       ? nextWave.enemies
       : undefined;
 
-  const livesPct = (state.lives / state.maxLives) * 100;
+  const livesPct = (state.playerBaseHp / state.maxPlayerBaseHp) * 100;
   const livesColor = livesPct > 60 ? '#00ff88' : livesPct > 30 ? '#ffcc00' : '#ff4444';
+  const opponentPct = (state.opponentBaseHp / state.maxOpponentBaseHp) * 100;
 
   const showStartWaveBtn =
     state.phase === 'wave_complete' || (state.phase === 'playing' && state.wave === 0);
@@ -150,10 +151,10 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
       <div className="flex min-h-0 min-w-0 max-h-full w-full items-center self-center overflow-hidden border-r border-white/[0.07] pr-2">
         <div className="flex min-w-0 w-full max-w-full items-stretch overflow-hidden">
           <div className="flex shrink-0 flex-col justify-center gap-1.5 border-r border-white/[0.08] pr-2 sm:pr-3">
-            <HudStatLabel>Lives</HudStatLabel>
+            <HudStatLabel>Base</HudStatLabel>
             <LivesRing
-              value={state.lives}
-              max={state.maxLives}
+              value={state.playerBaseHp}
+              max={state.maxPlayerBaseHp}
               pct={livesPct}
               color={livesColor}
             />
@@ -303,6 +304,22 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
 
       {/* Right — speed presets separate from Pause / Resume / Start (matches layout during live play) */}
       <div className="flex min-h-0 min-w-0 max-h-full items-center justify-end gap-2 self-center overflow-hidden border-l border-white/[0.07] pl-2">
+        <div className="hidden min-w-[8rem] shrink-0 flex-col gap-1 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2 py-1.5 md:flex">
+          <div className="flex items-center justify-between gap-2 font-mono text-[10px] font-bold uppercase tracking-wide">
+            <span className="text-red-200/70">Enemy Core</span>
+            <span className="tabular-nums text-red-200">{state.opponentBaseHp}/{state.maxOpponentBaseHp}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-dark-600">
+            <div
+              className="h-full rounded-full bg-red-400 transition-all"
+              style={{ width: `${opponentPct}%`, boxShadow: '0 0 6px rgba(248,113,113,0.8)' }}
+            />
+          </div>
+          <div className="font-mono text-[10px] tabular-nums text-white/45">
+            Threat {formatCompactCount(Math.floor(state.offenseResource))}
+          </div>
+        </div>
+
         <div className="mr-2 flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-dark-900/55 px-1 py-1">
           {speedPresetButtons}
         </div>

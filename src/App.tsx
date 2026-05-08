@@ -1,9 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import type { GameState, TowerType } from './game/types';
-import { commandHeroMove, createInitialState, placeTower, sellTower, upgradeTower, startWave } from './game/engine';
+import type { AttackPackageId, GameState, TowerType } from './game/types';
+import { commandHeroMove, createInitialState, deployAttackPackage, placeTower, sellTower, upgradeTower, startWave } from './game/engine';
 import { renderGame } from './game/renderer';
 import { useGameLoop } from './hooks/useGameLoop';
-import { CELL_SIZE, GRID_COLS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, MAP_W, HUD_SLOT_H, FOOTER_H, FOOTER_GRID_MIN_W } from './game/constants';
+import { CELL_SIZE, GRID_COLS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, MAP_W, HUD_SLOT_H, FOOTER_H, FOOTER_GRID_MIN_W, isPlayerBuildableCell } from './game/constants';
 import { HUD } from './components/HUD';
 import { TowerInspector, TowerShopStrip } from './components/TowerShop';
 import { GameOverlay } from './components/GameOverlay';
@@ -116,7 +116,7 @@ export default function App() {
     const point = getWorldPoint(e);
     const state = stateRef.current;
 
-    if (state.selectedTowerType && state.grid[y]?.[x] === 'empty') {
+    if (state.selectedTowerType && state.grid[y]?.[x] === 'empty' && isPlayerBuildableCell(x)) {
       stateRef.current = placeTower(state, x, y, state.selectedTowerType);
       setSnapshot({ ...stateRef.current });
       return;
@@ -172,6 +172,11 @@ export default function App() {
 
   const handleSell = useCallback((id: string) => {
     stateRef.current = sellTower(stateRef.current, id);
+    setSnapshot({ ...stateRef.current });
+  }, []);
+
+  const handleDeployAttack = useCallback((id: AttackPackageId) => {
+    stateRef.current = deployAttackPackage(stateRef.current, id);
     setSnapshot({ ...stateRef.current });
   }, []);
 
@@ -406,6 +411,7 @@ export default function App() {
                       onUpgrade={handleUpgrade}
                       onSell={handleSell}
                       onDeselect={handleDeselect}
+                      onDeployAttack={handleDeployAttack}
                     />
                   </div>
                 </div>

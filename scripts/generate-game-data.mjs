@@ -18,6 +18,7 @@ const sourceFiles = {
   enemies: 'enemies.json',
   waves: 'waves.json',
   combat: 'combat.json',
+  pvpAttacks: 'pvp-attacks.json',
 };
 
 async function readJson(fileName) {
