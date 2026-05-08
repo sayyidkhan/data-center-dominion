@@ -1,6 +1,5 @@
 import type { GameState, Tower, Particle, VisualEffect, Vec2, Hero } from './types';
-import { CELL_SIZE, GRID_COLS, GRID_ROWS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS } from './constants';
-import { LASER_ACTIVE_MS } from './engine';
+import { CELL_SIZE, GRID_COLS, GRID_ROWS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS, LASER_ACTIVE_MS } from './constants';
 
 export function renderGame(
   ctx: CanvasRenderingContext2D,

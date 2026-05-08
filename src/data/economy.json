@@ -1,0 +1,8 @@
+{
+  "startingGold": 200,
+  "startingLives": 20,
+  "maxWaves": 15,
+  "sellRefundRate": 0.6,
+  "scorePerReward": 10,
+  "waveHpScalePerWave": 0.12
+}

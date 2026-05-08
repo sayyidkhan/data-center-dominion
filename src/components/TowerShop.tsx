@@ -1,6 +1,6 @@
 import React from 'react';
 import type { GameState, TowerType } from '../game/types';
-import { CELL_SIZE, TOWER_DEFS } from '../game/constants';
+import { CELL_SIZE, SELL_REFUND_RATE, TOWER_DEFS } from '../game/constants';
 import { InspectMiniStat } from './InspectMiniStat';
 import { formatCompactCount } from '../formatCompactCount';
 
@@ -302,7 +302,7 @@ function SelectedTowerPanel({ state, tower, onUpgrade, onSell, onDeselect }: {
             className="flex min-h-[2.5rem] items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 font-mono text-xs text-red-400 transition-all hover:border-red-500/50 hover:bg-red-500/20"
           >
             <span>Sell</span>
-            <span className="text-yellow-300">◆ {formatCompactCount(Math.floor(def.cost * 0.6))}</span>
+            <span className="text-yellow-300">◆ {formatCompactCount(Math.floor(def.cost * SELL_REFUND_RATE))}</span>
           </button>
         </div>
         <button

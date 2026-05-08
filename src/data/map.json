@@ -1,0 +1,25 @@
+{
+  "cellSize": 36,
+  "gridCols": 42,
+  "gridRows": 14,
+  "viewportCols": 32,
+  "hudSlotHeight": 116,
+  "footerHeight": 292,
+  "footerGridMinWidth": 1120,
+  "pathWaypoints": [
+    [41, 2],
+    [36, 2],
+    [36, 5],
+    [30, 5],
+    [30, 11],
+    [24, 11],
+    [24, 2],
+    [18, 2],
+    [18, 8],
+    [12, 8],
+    [12, 4],
+    [8, 4],
+    [8, 7],
+    [3, 7]
+  ]
+}

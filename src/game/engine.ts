@@ -2,21 +2,15 @@ import type { GameState, Tower, Enemy, Projectile, Particle, VisualEffect, Vec2,
 import {
   CELL_SIZE, GRID_COLS, GRID_ROWS, STARTING_GOLD, STARTING_LIVES, MAX_WAVES,
   TOWER_DEFS, ENEMY_DEFS, WAVE_DEFS, MAP_W, MAP_H, VIEWPORT_W, HERO_START, HERO_STATS,
+  CANNON_ARMOR_BREAK, CANNON_DEBUFF_CHANCE, CANNON_DEBUFF_DURATION, CANNON_EXPOSED_BONUS,
+  FROST_FREEZE_CHANCE, FROST_FREEZE_MS, HERO_PROJECTILE, LASER_ACTIVE_MS, LASER_CYCLE_MS,
+  SCORE_PER_REWARD, SELL_REFUND_RATE, TESLA_CHAIN_RANGE, UPGRADE_DAMAGE_MULTIPLIER,
+  UPGRADE_FIRE_RATE_MULTIPLIER, UPGRADE_RANGE_MULTIPLIER, WAVE_HP_SCALE_PER_WAVE,
 } from './constants';
 import { buildPath, buildPathGrid, distance, angleTo } from './pathfinding';
 
 let nextId = 1;
 const uid = () => `id_${nextId++}`;
-export const LASER_ACTIVE_MS = 2000;
-const LASER_COOLDOWN_MS = 1000;
-const LASER_CYCLE_MS = LASER_ACTIVE_MS + LASER_COOLDOWN_MS;
-const FROST_FREEZE_CHANCE = 0.2;
-const FROST_FREEZE_MS = 1000;
-const TESLA_CHAIN_RANGE = 2.25 * CELL_SIZE;
-const CANNON_DEBUFF_CHANCE = [0, 0.35, 0.5, 0.65];
-const CANNON_DEBUFF_DURATION = [0, 3000, 4000, 5000];
-const CANNON_ARMOR_BREAK = [0, 3, 6, 10];
-const CANNON_EXPOSED_BONUS = [0, 0.15, 0.25, 0.4];
 
 export function createInitialState(): GameState {
   const path = buildPath();
@@ -125,9 +119,9 @@ export function sellTower(state: GameState, towerId: string): GameState {
   if (!tower) return state;
 
   const def = TOWER_DEFS[tower.type];
-  let sellValue = Math.floor(def.cost * 0.6);
+  let sellValue = Math.floor(def.cost * SELL_REFUND_RATE);
   for (let i = 0; i < tower.level - 1; i++) {
-    sellValue += Math.floor((def.upgradeCost[i] || 0) * 0.6);
+    sellValue += Math.floor((def.upgradeCost[i] || 0) * SELL_REFUND_RATE);
   }
 
   const newGrid = state.grid.map(row => [...row]);
@@ -153,9 +147,9 @@ export function upgradeTower(state: GameState, towerId: string): GameState {
   const newTower: Tower = {
     ...tower,
     level: tower.level + 1,
-    damage: Math.floor(tower.damage * 1.5),
-    range: tower.range * 1.15,
-    fireRate: tower.fireRate * 1.2,
+    damage: Math.floor(tower.damage * UPGRADE_DAMAGE_MULTIPLIER),
+    range: tower.range * UPGRADE_RANGE_MULTIPLIER,
+    fireRate: tower.fireRate * UPGRADE_FIRE_RATE_MULTIPLIER,
   };
 
   return {
@@ -191,7 +185,7 @@ export function startWave(state: GameState): GameState {
 
 function spawnEnemy(state: GameState, type: Parameters<typeof ENEMY_DEFS['grunt']['type'] extends infer T ? (t: T) => void : never>[0]): Enemy {
   const def = ENEMY_DEFS[type as keyof typeof ENEMY_DEFS];
-  const waveScale = 1 + (state.wave - 1) * 0.12;
+  const waveScale = 1 + (state.wave - 1) * WAVE_HP_SCALE_PER_WAVE;
   return {
     id: uid(),
     type: type as Enemy['type'],
@@ -404,12 +398,12 @@ function tickHero(state: GameState, dt: number, deltaMs: number): GameState {
         x: hero.x,
         y: hero.y,
         targetId: best.id,
-        speed: 680,
+        speed: HERO_PROJECTILE.speed,
         damage: hero.damage,
         towerId: hero.id,
         splashRadius: 0,
-        color: '#f6c453',
-        size: 3,
+        color: HERO_PROJECTILE.color,
+        size: HERO_PROJECTILE.size,
         slowAmount: 0,
         slowDuration: 0,
       });
@@ -531,7 +525,7 @@ function tickTowers(state: GameState, deltaMs: number): GameState {
             enemy.isAlive = false;
             gold += enemy.reward;
             totalGoldEarned += enemy.reward;
-            score += enemy.reward * 10;
+            score += enemy.reward * SCORE_PER_REWARD;
             kills++;
 
             for (let i = 0; i < 12; i++) {
@@ -620,7 +614,7 @@ function tickTowers(state: GameState, deltaMs: number): GameState {
           currentTarget.isAlive = false;
           gold += currentTarget.reward;
           totalGoldEarned += currentTarget.reward;
-          score += currentTarget.reward * 10;
+          score += currentTarget.reward * SCORE_PER_REWARD;
           kills++;
           towerKills++;
           newParticles.push(...spawnDeathParticles(currentTarget));
@@ -729,7 +723,7 @@ function tickProjectiles(state: GameState, dt: number): GameState {
         const speed = isFrost ? 70 + Math.random() * 170 : 60 + Math.random() * 80;
         const color = isFrost
           ? ['#e0f7fa', '#b2ebf2', '#80deea', '#ffffff'][i % 4]
-          : isMachineRound ? '#f6c453' : proj.color;
+          : isMachineRound ? HERO_PROJECTILE.color : proj.color;
         newParticles.push({
           id: uid(),
           x: target.x,
@@ -818,7 +812,7 @@ function tickProjectiles(state: GameState, dt: number): GameState {
         e.isAlive = false;
         gold += e.reward;
         totalGoldEarned += e.reward;
-        score += e.reward * 10;
+        score += e.reward * SCORE_PER_REWARD;
         kills++;
 
         // Death explosion
