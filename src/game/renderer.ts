@@ -1,6 +1,9 @@
 import type { GameState, Tower, Particle, VisualEffect, Vec2, Hero } from './types';
 import { CELL_SIZE, GRID_COLS, GRID_ROWS, MAP_W, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, TOWER_DEFS, ENEMY_DEFS, LASER_ACTIVE_MS, isPlayerBuildableCell } from './constants';
 
+const PLAYER_BASE_TARGET_ID = 'player_base';
+const OPPONENT_BASE_TARGET_ID = 'opponent_base';
+
 export function renderGame(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -30,7 +33,8 @@ export function renderGame(
   drawDataCenter(ctx, state, time, 'opponent');
   drawSpawnPortal(ctx, state, time);
   drawTowers(ctx, state, time);
-  drawHero(ctx, state.hero, time);
+  drawHero(ctx, state.hero, time, 'player');
+  if (state.opponentHero) drawHero(ctx, state.opponentHero, time, 'opponent');
   drawEnemies(ctx, state, time);
   drawLaserBeams(ctx, state, time);
   drawProjectiles(ctx, state, time);
@@ -110,51 +114,97 @@ function drawMenuBackdrop(ctx: CanvasRenderingContext2D, time: number) {
   ctx.fillRect(0, 0, w, h);
 }
 
-function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
+function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number, side: 'player' | 'opponent') {
   const walk = Math.sin(time * 12) * 1.5;
+  const heroMaxHp = hero.maxHp || 10;
+  const heroHp = Math.max(0, Math.min(heroMaxHp, hero.hp ?? heroMaxHp));
+  const respawnMs = hero.respawnMs || 10000;
+  const respawnTimer = Math.max(0, hero.respawnTimer ?? 0);
+  const isOpponent = side === 'opponent';
+  const primary = isOpponent ? '#ff5c78' : '#00d4ff';
+  const bright = isOpponent ? '#ffccd5' : '#5ecbff';
+  const chassis = isOpponent ? '#3a1724' : '#12243a';
+  const inner = isOpponent ? '#5a2332' : '#1b3656';
+  const core = isOpponent ? '#ffdf7a' : '#64ffda';
+  const muzzle = isOpponent ? '#ff9aaa' : '#f6c453';
 
+  if (!hero.isAlive) {
+    const pct = 1 - respawnTimer / respawnMs;
+    ctx.save();
+    ctx.translate(hero.targetX, hero.targetY);
+    ctx.strokeStyle = isOpponent ? 'rgba(255, 92, 120, 0.45)' : 'rgba(100, 255, 218, 0.45)';
+    ctx.fillStyle = isOpponent ? 'rgba(255, 92, 120, 0.08)' : 'rgba(100, 255, 218, 0.08)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 13 + Math.sin(time * 5) * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = isOpponent ? '#ff5c78' : '#64ffda';
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (!isOpponent) {
+    ctx.save();
+    ctx.translate(hero.targetX, hero.targetY);
+    ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 10 + Math.sin(time * 5) * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  const hpPct = Math.max(0, Math.min(1, heroHp / heroMaxHp));
   ctx.save();
-  ctx.translate(hero.targetX, hero.targetY);
-  ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
-  ctx.fillStyle = 'rgba(0, 212, 255, 0.08)';
+  ctx.translate(hero.x, hero.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(-15, -24, 30, 4);
+  ctx.fillStyle = hpPct > 0.5 ? (isOpponent ? '#ff9aaa' : '#64ffda') : hpPct > 0.25 ? '#ffcc00' : '#ff5c78';
+  ctx.fillRect(-15, -24, 30 * hpPct, 4);
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([4, 5]);
-  ctx.beginPath();
-  ctx.arc(0, 0, 10 + Math.sin(time * 5) * 1.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.strokeRect(-15.5, -24.5, 31, 5);
   ctx.restore();
 
   ctx.save();
   ctx.translate(hero.x, hero.y);
   ctx.rotate(hero.angle);
 
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = primary;
   ctx.shadowBlur = hero.targetId ? 18 : 8;
 
   // Mobile defense mecha chassis.
-  ctx.fillStyle = '#12243a';
-  ctx.strokeStyle = '#5ecbff';
+  ctx.fillStyle = chassis;
+  ctx.strokeStyle = bright;
   ctx.lineWidth = 1.4;
   roundedRect(ctx, -11, -11, 22, 22, 5);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = '#1b3656';
+  ctx.fillStyle = inner;
   roundedRect(ctx, -7, -7, 14, 14, 3);
   ctx.fill();
 
-  ctx.fillStyle = '#64ffda';
-  ctx.shadowColor = '#64ffda';
+  ctx.fillStyle = core;
+  ctx.shadowColor = core;
   ctx.shadowBlur = 8;
   ctx.beginPath();
   ctx.arc(3, -3, 2.4, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = primary;
   ctx.shadowBlur = hero.targetId ? 12 : 4;
-  ctx.strokeStyle = '#5ecbff';
+  ctx.strokeStyle = bright;
   ctx.lineWidth = 3;
   for (const side of [-1, 1]) {
     ctx.beginPath();
@@ -176,8 +226,10 @@ function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
   roundedRect(ctx, 13, -2, 14, 4, 2);
   ctx.fill();
   if (hero.targetId) {
-    ctx.fillStyle = `rgba(246, 196, 83, ${0.6 + Math.sin(time * 40) * 0.25})`;
-    ctx.shadowColor = '#f6c453';
+    ctx.fillStyle = isOpponent
+      ? `rgba(255, 154, 170, ${0.6 + Math.sin(time * 40) * 0.25})`
+      : `rgba(246, 196, 83, ${0.6 + Math.sin(time * 40) * 0.25})`;
+    ctx.shadowColor = muzzle;
     ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.arc(29, 0, 3.5, 0, Math.PI * 2);
@@ -186,14 +238,16 @@ function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
 
   ctx.restore();
 
-  ctx.save();
-  ctx.translate(hero.x, hero.y);
-  ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, 0, hero.range, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
+  if (!isOpponent) {
+    ctx.save();
+    ctx.translate(hero.x, hero.y);
+    ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, hero.range, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function isWorldRectVisible(x: number, w: number, cameraX: number, padding = 0) {
@@ -326,7 +380,7 @@ function drawPath(ctx: CanvasRenderingContext2D, state: GameState, time: number)
   }
 
   drawPathLine(ctx, state.path, 'rgba(0, 212, 255, 0.2)', time);
-  drawPathLine(ctx, state.attackPath, 'rgba(255, 92, 120, 0.32)', -time);
+  drawPathLine(ctx, state.attackPath, 'rgba(255, 92, 120, 0.32)', time);
 }
 
 function drawPathLine(ctx: CanvasRenderingContext2D, path: Vec2[], color: string, time: number) {
@@ -855,6 +909,9 @@ function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: numbe
     if (!isWorldRectVisible(tower.x - tower.range, tower.range * 2, state.cameraX, CELL_SIZE)) continue;
     const def = TOWER_DEFS[tower.type];
     const isSelected = state.selectedTowerId === tower.id;
+    const isOpponentTower = tower.owner === 'opponent';
+    const towerColor = isOpponentTower ? tintColor(def.color, '#ff5c78', 0.5) : def.color;
+    const towerAccent = isOpponentTower ? '#ff9aaa' : def.accentColor;
     const x = tower.x;
     const y = tower.y;
 
@@ -862,19 +919,19 @@ function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: numbe
     ctx.translate(x, y);
 
     if (isSelected) {
-      ctx.shadowColor = def.accentColor;
+      ctx.shadowColor = towerAccent;
       ctx.shadowBlur = 20;
     }
 
-    ctx.fillStyle = '#1a2240';
-    ctx.strokeStyle = isSelected ? def.accentColor : def.color;
+    ctx.fillStyle = isOpponentTower ? '#2a1520' : '#1a2240';
+    ctx.strokeStyle = isSelected ? towerAccent : towerColor;
     ctx.lineWidth = isSelected ? 2 : 1.5;
     roundedRect(ctx, -CELL_SIZE / 2 + 4, -CELL_SIZE / 2 + 4, CELL_SIZE - 8, CELL_SIZE - 8, 4);
     ctx.fill();
     ctx.stroke();
 
     ctx.rotate(tower.angle + Math.PI / 2);
-    drawTowerShape(ctx, tower.type, def.color, def.accentColor, tower.level, time);
+    drawTowerShape(ctx, tower.type, towerColor, towerAccent, tower.level, time);
     ctx.restore();
 
     // Level badge — only shown when level > 1
@@ -887,8 +944,8 @@ function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: numbe
       const bx = CELL_SIZE / 2 - bw - 1;
       const by = -CELL_SIZE / 2 + 1;
       // background pill
-      ctx.fillStyle = def.accentColor;
-      ctx.shadowColor = def.accentColor;
+      ctx.fillStyle = towerAccent;
+      ctx.shadowColor = towerAccent;
       ctx.shadowBlur = 10;
       roundedRect(ctx, bx, by, bw, bh, 5);
       ctx.fill();
@@ -900,6 +957,20 @@ function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: numbe
       ctx.textBaseline = 'middle';
       ctx.fillText(label, bx + bw / 2, by + bh / 2 + 0.5);
       ctx.textBaseline = 'alphabetic';
+      ctx.restore();
+    }
+
+    const hpPct = Math.max(0, Math.min(1, (tower.hp ?? tower.maxHp) / (tower.maxHp || 3)));
+    if (hpPct < 1 || tower.owner === 'opponent') {
+      ctx.save();
+      ctx.translate(x, y);
+      const barW = CELL_SIZE - 10;
+      const barH = 3;
+      const barY = -CELL_SIZE / 2 + 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.68)';
+      ctx.fillRect(-barW / 2, barY, barW, barH);
+      ctx.fillStyle = hpPct > 0.5 ? '#64ffda' : hpPct > 0.25 ? '#ffcc00' : '#ff5c78';
+      ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
       ctx.restore();
     }
   }
@@ -1158,7 +1229,15 @@ function tintColor(hex: string, tint: string, amount: number) {
 function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   for (const proj of state.projectiles) {
     if (!isWorldRectVisible(proj.x - 24, 48, state.cameraX, CELL_SIZE)) continue;
-    const target = state.enemies.find(e => e.id === proj.targetId);
+    const playerBaseTarget = nearestPointOnDataCenter(state, 'player', proj);
+    const opponentBaseTarget = nearestPointOnDataCenter(state, 'opponent', proj);
+    const target =
+      state.enemies.find(e => e.id === proj.targetId)
+      ?? state.towers.find(tower => tower.id === proj.targetId)
+      ?? (proj.targetId === state.hero.id ? state.hero : undefined)
+      ?? (proj.targetId === state.opponentHero?.id ? state.opponentHero : undefined)
+      ?? (proj.targetId === PLAYER_BASE_TARGET_ID ? playerBaseTarget : undefined)
+      ?? (proj.targetId === OPPONENT_BASE_TARGET_ID ? opponentBaseTarget : undefined);
     const angle = target ? Math.atan2(target.y - proj.y, target.x - proj.x) : 0;
 
     ctx.save();
@@ -1218,15 +1297,15 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: 
         break;
       case 'machine_round':
         ctx.rotate(angle);
-        ctx.shadowColor = '#f6c453';
+        ctx.shadowColor = proj.color;
         ctx.shadowBlur = 10;
-        ctx.strokeStyle = '#f6c453';
+        ctx.strokeStyle = proj.color;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-7, 0);
         ctx.lineTo(8, 0);
         ctx.stroke();
-        ctx.fillStyle = '#fff4ba';
+        ctx.fillStyle = proj.color === '#ff8a9a' ? '#ffd1dc' : '#fff4ba';
         ctx.beginPath();
         ctx.arc(9, 0, 2.2, 0, Math.PI * 2);
         ctx.fill();
@@ -1236,6 +1315,22 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: 
     ctx.shadowBlur = 0;
     ctx.restore();
   }
+}
+
+function nearestPointOnDataCenter(state: GameState, side: 'player' | 'opponent', point: Vec2): Vec2 {
+  const pathEnd =
+    side === 'opponent'
+      ? state.attackPath[state.attackPath.length - 1]
+      : state.path[state.path.length - 1];
+  const w = CELL_SIZE * 3;
+  const h = CELL_SIZE * 9.5;
+  const x = side === 'opponent' ? MAP_W - w : 0;
+  const y = pathEnd.y - h / 2;
+
+  return {
+    x: Math.max(x, Math.min(x + w, point.x)),
+    y: Math.max(y, Math.min(y + h, point.y)),
+  };
 }
 
 function drawLaserBeams(ctx: CanvasRenderingContext2D, state: GameState, time: number) {

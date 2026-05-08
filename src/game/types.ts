@@ -10,6 +10,7 @@ export type AttackPackageId = 'grunt_pack' | 'speeder_rush' | 'tank_push' | 'swa
 
 export interface Tower {
   id: string;
+  owner: 'player' | 'opponent';
   type: TowerType;
   gridX: number;
   gridY: number;
@@ -17,6 +18,8 @@ export interface Tower {
   y: number;
   level: number;
   damage: number;
+  hp: number;
+  maxHp: number;
   range: number;
   fireRate: number; // shots per second
   lastFired: number;
@@ -41,6 +44,13 @@ export interface Hero {
   targetId: string | null;
   angle: number;
   kills: number;
+  heroKills: number;
+  hp: number;
+  maxHp: number;
+  isAlive: boolean;
+  respawnTimer: number;
+  respawnMs: number;
+  healPerSecond: number;
 }
 
 export interface Enemy {
@@ -116,6 +126,7 @@ export type VisualEffect =
 
 export interface GameState {
   phase: 'menu' | 'playing' | 'paused' | 'wave_complete' | 'game_over' | 'victory';
+  gameMode: 'single_player' | 'multi_player' | null;
   wave: number;
   maxWaves: number;
   lives: number;
@@ -128,10 +139,13 @@ export interface GameState {
   maxOffenseResource: number;
   attackCooldowns: Record<AttackPackageId, number>;
   aiAttackTimer: number;
+  aiBuildGold: number;
+  aiBuildTimer: number;
   gold: number;
   score: number;
   towers: Tower[];
   hero: Hero;
+  opponentHero: Hero;
   enemies: Enemy[];
   projectiles: Projectile[];
   particles: Particle[];
@@ -163,6 +177,7 @@ export interface TowerDef {
   name: string;
   cost: number;
   damage: number;
+  hp: number;
   range: number;
   fireRate: number;
   color: string;

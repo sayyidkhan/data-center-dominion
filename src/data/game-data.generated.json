@@ -1,7 +1,7 @@
 {
   "schema": "data-center-dominion/game-data-bundle",
   "version": "single-player-v1",
-  "contentHash": "9294e4ec325ff3a69d71ab91201a8140857b59ce59b73afb1b8c5a1f9c9b67b0",
+  "contentHash": "fd4a9ea81daa95a4c763f34a7012f034713d6444134a6f50a5602f85cf90622c",
   "sources": {
     "map": "map.json",
     "economy": "economy.json",
@@ -144,6 +144,29 @@
           63,
           7
         ]
+      ],
+      "enemyTowerLoadout": [
+        {
+          "type": "cannon",
+          "gridX": 49,
+          "gridY": 7,
+          "damage": 1,
+          "fireRate": 0.7
+        },
+        {
+          "type": "laser",
+          "gridX": 54,
+          "gridY": 4,
+          "damage": 1,
+          "fireRate": 0.8
+        },
+        {
+          "type": "cannon",
+          "gridX": 58,
+          "gridY": 10,
+          "damage": 1,
+          "fireRate": 0.6
+        }
       ]
     },
     "economy": {
@@ -153,6 +176,10 @@
       "maxOffenseResource": 250,
       "offenseResourcePerSecond": 4,
       "aiAttackIntervalMs": 9000,
+      "aiStartingBuildGold": 120,
+      "aiBuildGoldPerSecond": 12,
+      "aiBuildIntervalMs": 5500,
+      "aiMaxTowers": 10,
       "maxWaves": 15,
       "sellRefundRate": 0.6,
       "scorePerReward": 10,
@@ -167,7 +194,10 @@
         "speed": 145,
         "damage": 5,
         "range": 3.75,
-        "fireRate": 4
+        "fireRate": 4,
+        "maxHp": 10,
+        "respawnMs": 10000,
+        "healPerSecond": 1
       },
       "projectile": {
         "speed": 680,
@@ -181,6 +211,7 @@
         "name": "Cannon",
         "cost": 75,
         "damage": 45,
+        "hp": 3,
         "range": 3.5,
         "fireRate": 1.2,
         "color": "#4a7fa5",
@@ -200,6 +231,7 @@
         "name": "Laser",
         "cost": 120,
         "damage": 18,
+        "hp": 3,
         "range": 4,
         "fireRate": 8,
         "color": "#e040fb",
@@ -219,6 +251,7 @@
         "name": "Frost",
         "cost": 100,
         "damage": 20,
+        "hp": 3,
         "range": 3,
         "fireRate": 0.6,
         "color": "#29b6f6",
@@ -238,6 +271,7 @@
         "name": "Tesla",
         "cost": 150,
         "damage": 80,
+        "hp": 3,
         "range": 3,
         "fireRate": 0.8,
         "color": "#ffee58",
@@ -257,6 +291,7 @@
         "name": "Missile",
         "cost": 200,
         "damage": 200,
+        "hp": 3,
         "range": 5,
         "fireRate": 0.4,
         "color": "#ff7043",

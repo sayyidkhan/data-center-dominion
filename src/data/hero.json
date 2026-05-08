@@ -7,7 +7,10 @@
     "speed": 145,
     "damage": 5,
     "range": 3.75,
-    "fireRate": 4
+    "fireRate": 4,
+    "maxHp": 10,
+    "respawnMs": 10000,
+    "healPerSecond": 1
   },
   "projectile": {
     "speed": 680,

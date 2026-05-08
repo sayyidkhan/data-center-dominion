@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from
 import type { AttackPackageId, GameState, TowerType } from './game/types';
 import { commandHeroMove, createInitialState, deployAttackPackage, placeTower, sellTower, upgradeTower, startWave } from './game/engine';
 import { renderGame } from './game/renderer';
-import { useGameLoop } from './hooks/useGameLoop';
+import { type PerfStats, useGameLoop } from './hooks/useGameLoop';
 import { CELL_SIZE, GRID_COLS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, MAP_W, HUD_SLOT_H, FOOTER_H, FOOTER_GRID_MIN_W, isPlayerBuildableCell } from './game/constants';
 import { HUD } from './components/HUD';
 import { TowerInspector, TowerShopStrip } from './components/TowerShop';
@@ -23,6 +23,14 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>(createInitialState());
   const [snapshot, setSnapshot] = useState<GameState>(stateRef.current);
+  const [perfStats, setPerfStats] = useState<PerfStats>({
+    fps: 60,
+    frameMs: 16.7,
+    updateMs: 0,
+    renderMs: 0,
+    objects: 0,
+    memoryMb: null,
+  });
   const hoveredCellRef = useRef<{ x: number; y: number } | null>(null);
 
   // Camera pan via mouse edge proximity
@@ -42,7 +50,7 @@ export default function App() {
     renderGame(ctx, state, hoveredCellRef.current, time);
   }, []);
 
-  const { start, stop } = useGameLoop(stateRef, setThrottledSnapshot, canvasRef, renderFn);
+  const { start, stop } = useGameLoop(stateRef, setThrottledSnapshot, canvasRef, renderFn, setPerfStats);
 
   useEffect(() => {
     start();
@@ -122,7 +130,7 @@ export default function App() {
       return;
     }
 
-    const tower = state.towers.find(t => t.gridX === x && t.gridY === y);
+    const tower = state.towers.find(t => t.owner === 'player' && t.gridX === x && t.gridY === y);
     if (tower) {
       stateRef.current = { ...stateRef.current, selectedTowerId: tower.id, selectedTowerType: null };
       setSnapshot({ ...stateRef.current });
@@ -195,7 +203,7 @@ export default function App() {
     handleDeselect();
   }, [handleDeselect]);
 
-  const handleStartWave = useCallback(() => {
+  const handleStartMatch = useCallback(() => {
     const cur = stateRef.current;
     if (cur.phase === 'menu' || cur.phase === 'wave_complete' || cur.phase === 'playing') {
       stateRef.current = startWave({ ...cur, phase: cur.phase === 'menu' ? 'wave_complete' : cur.phase });
@@ -215,12 +223,12 @@ export default function App() {
   }, []);
 
   const handleStart = useCallback(() => {
-    stateRef.current = { ...stateRef.current, phase: 'wave_complete' };
+    stateRef.current = { ...stateRef.current, gameMode: 'single_player', phase: 'wave_complete' };
     setSnapshot({ ...stateRef.current });
   }, []);
 
   const handleRestart = useCallback(() => {
-    stateRef.current = { ...createInitialState(), phase: 'wave_complete' };
+    stateRef.current = { ...createInitialState(), gameMode: 'single_player', phase: 'wave_complete' };
     setSnapshot({ ...stateRef.current });
   }, []);
 
@@ -234,7 +242,7 @@ export default function App() {
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         if (state.phase === 'menu') handleStart();
-        else if (state.phase === 'wave_complete') handleStartWave();
+        else if (state.phase === 'wave_complete') handleStartMatch();
       }
       if (e.key === 'p' || e.key === 'P') {
         if (state.phase === 'playing' || state.phase === 'paused') handlePause();
@@ -264,7 +272,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleStart, handleStartWave, handlePause]);
+  }, [handleStart, handleStartMatch, handlePause]);
 
   const isGameActive = snapshot.phase !== 'menu';
 
@@ -340,15 +348,16 @@ export default function App() {
         >
         {/* Same fixed shell on menu & in-game so scale-to-fit and footprint match */}
         <div
-          className={`flex shrink-0 flex-col overflow-hidden ${
+          className={`relative z-20 flex shrink-0 flex-col ${
             !isGameActive ? 'border-b border-cyber-blue/20' : ''
-          } ${isGameActive ? 'bg-dark-800' : 'bg-dark-900'}`}
+          } ${isGameActive ? 'overflow-visible bg-dark-800' : 'overflow-hidden bg-dark-900'}`}
           style={{ height: HUD_SLOT_H }}
         >
           {isGameActive ? (
             <HUD
               state={snapshot}
-              onStartWave={handleStartWave}
+              perfStats={perfStats}
+              onStartMatch={handleStartMatch}
               onPause={handlePause}
               onSetSpeed={handleSetSpeed}
             />
@@ -381,7 +390,6 @@ export default function App() {
                 state={snapshot}
                 onStart={handleStart}
                 onRestart={handleRestart}
-                onStartWave={handleStartWave}
                 onResume={handlePause}
               />
             </div>
@@ -492,6 +500,10 @@ function HeroStatus({ state }: { state: GameState }) {
   const hero = state.hero;
   const dps = Math.round(hero.damage * hero.fireRate);
   const rangeCells = (hero.range / CELL_SIZE).toFixed(1);
+  const heroMaxHp = hero.maxHp || 10;
+  const heroHp = Math.max(0, Math.min(heroMaxHp, hero.hp ?? heroMaxHp));
+  const respawnTimer = Math.max(0, hero.respawnTimer ?? 0);
+  const hpPct = (heroHp / heroMaxHp) * 100;
   const controlHint =
     'Left-click: move mecha · Right-click: path · Shoots creeps automatically in weapon range';
 
@@ -513,8 +525,23 @@ function HeroStatus({ state }: { state: GameState }) {
           <div className="min-w-0 flex-1">
             <p className="truncate font-mono text-base font-bold leading-tight text-cyber-blue">Defense Mecha</p>
             <p className="mt-0.5 font-mono text-sm leading-snug text-white/55">
-              {hero.targetId ? 'Engaging a creep.' : 'Awaiting orders — click the map.'}
+              {!hero.isAlive
+                ? `Respawning in ${Math.ceil(respawnTimer / 1000)}s.`
+                : hero.targetId ? 'Engaging a creep.' : 'Awaiting orders — click the map.'}
             </p>
+          </div>
+        </div>
+
+        <div className="mb-2">
+          <div className="mb-1 flex items-center justify-between font-mono text-xs text-white/55">
+            <span>HP</span>
+            <span className="tabular-nums text-white/80">{Math.ceil(heroHp)}/{heroMaxHp}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full rounded-full ${hero.isAlive ? 'bg-cyber-green' : 'bg-red-300'}`}
+              style={{ width: `${hpPct}%` }}
+            />
           </div>
         </div>
 
@@ -525,18 +552,29 @@ function HeroStatus({ state }: { state: GameState }) {
                 hero.targetId ? 'bg-cyber-green/14 text-cyber-green' : 'bg-white/[0.07] text-white/45'
               }`}
             >
-              {hero.targetId ? 'Live' : 'Idle'}
+              {!hero.isAlive ? 'Down' : hero.targetId ? 'Live' : 'Idle'}
             </span>
             <span className="text-sm text-white/55">
               DPS{' '}
               <span className="font-bold tabular-nums text-cyber-blue">{formatCompactCount(dps)}</span>
             </span>
-            <span
-              className="ml-auto shrink-0 rounded bg-dark-700/70 px-2 py-0.5 text-sm font-bold tabular-nums text-white/80 ring-1 ring-white/10"
-              title={`Lifetime kills for this run: ${hero.kills}`}
-            >
-              Kill {formatCompactCount(hero.kills)}
-            </span>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-1.5 font-mono">
+          <div
+            className="rounded-md bg-dark-700/60 px-2 py-1 ring-1 ring-white/10"
+            title={`Lifetime kills for this run: ${hero.kills}`}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-white/40">Kills</p>
+            <p className="text-sm font-bold tabular-nums text-white/85">{formatCompactCount(hero.kills)}</p>
+          </div>
+          <div
+            className="rounded-md bg-red-500/10 px-2 py-1 ring-1 ring-red-300/20"
+            title={`Enemy hero takedowns for this run: ${hero.heroKills ?? 0}`}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-red-100/45">Hero Kills</p>
+            <p className="text-sm font-bold tabular-nums text-red-100">{formatCompactCount(hero.heroKills ?? 0)}</p>
           </div>
         </div>
 

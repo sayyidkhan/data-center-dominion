@@ -58,6 +58,7 @@ Used for:
 - HUD/footer layout heights.
 - Defensive path waypoints that opponent units follow toward the player base.
 - Attack path waypoints that player-deployed units follow toward the opponent base.
+- Enemy-side AI tower loadout for the local PvP proof of concept.
 
 Backend relevance:
 
@@ -73,6 +74,7 @@ Used for:
 - Starting gold.
 - Starting lives.
 - Maximum wave count.
+- AI builder starting budget, passive build income, build interval, and tower cap.
 - Tower sell refund rate.
 - Score gained per enemy reward.
 - Enemy HP scaling per wave.
@@ -93,6 +95,7 @@ Used for:
 - Damage.
 - Range.
 - Fire rate.
+- Health, respawn timing, and territory healing rate.
 - Machine-round projectile visuals and speed.
 
 Backend relevance:
@@ -109,6 +112,7 @@ Used for:
 - Tower names.
 - Costs.
 - Base damage.
+- Tower HP.
 - Range.
 - Fire rate.
 - Visual colors.

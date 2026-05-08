@@ -1,43 +1,14 @@
 import React from 'react';
 import type { GameState } from '../game/types';
-import { ENEMY_DEFS, MAX_WAVES, WAVE_DEFS, type WaveDef } from '../game/constants';
 import { formatCompactCount } from '../formatCompactCount';
+import type { PerfStats } from '../hooks/useGameLoop';
 
 interface HUDProps {
   state: GameState;
-  onStartWave: () => void;
+  perfStats: PerfStats;
+  onStartMatch: () => void;
   onPause: () => void;
   onSetSpeed: (speed: number) => void;
-}
-
-/** Single-row scrolling strip — avoids tiny wrapped text when many enemy types. */
-function WaveEnemyChips({ groups }: { groups: WaveDef['enemies'] }) {
-  return (
-    <div
-      className="-mx-0.5 flex min-h-[2.125rem] w-full max-w-full min-w-0 gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap py-1 pl-0.5 pr-1 [scrollbar-width:thin] sm:min-h-[2.25rem] [&::-webkit-scrollbar]:h-[5px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyber-green/25 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.04]"
-      role="list"
-      aria-label="Wave enemy roster"
-    >
-      {groups.map((group, i) => {
-        const def = ENEMY_DEFS[group.type];
-        return (
-          <span
-            key={`${group.type}-${i}`}
-            role="listitem"
-            title={`${group.type} × ${group.count}`}
-            className="inline-flex max-w-[min(100%,14rem)] shrink-0 items-center gap-1 rounded-lg border border-white/[0.14] bg-dark-900/55 px-2 py-0.5 pl-1.5 font-mono text-xs tabular-nums sm:min-h-8 sm:px-2.5 sm:py-1 sm:text-[0.8125rem]"
-          >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full sm:h-2.5 sm:w-2.5"
-                style={{ background: def.color, boxShadow: `0 0 5px ${def.color}` }}
-              />
-              <span className="min-w-0 truncate capitalize leading-tight tracking-tight text-white/[0.92]">{group.type}</span>
-              <span className="shrink-0 font-bold tabular-nums leading-none text-white/60">×{group.count}</span>
-            </span>
-          );
-        })}
-    </div>
-  );
 }
 
 function HudStatLabel({ children }: { children: React.ReactNode }) {
@@ -91,51 +62,90 @@ function LivesRing({ value, max, pct, color }: { value: number; max: number; pct
   );
 }
 
-export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
-  const wavePct =
-    state.waveSpawned > 0 ? (state.waveSpawned / (state.enemiesInWave.length || 1)) * 100 : 0;
-  const nextWaveIdx = Math.min(state.wave, MAX_WAVES - 1);
-  const nextWave = WAVE_DEFS[nextWaveIdx];
-  const totalEnemies = nextWave?.enemies.reduce((s, g) => s + g.count, 0) ?? 0;
+function MatchSide({ label, hp, maxHp, pct, heroLabel, heroAlive, heroHp, heroMaxHp, heroRespawnTimer, heroPct, tone }: {
+  label: string;
+  hp: number;
+  maxHp: number;
+  pct: number;
+  heroLabel: string;
+  heroAlive: boolean;
+  heroHp: number;
+  heroMaxHp: number;
+  heroRespawnTimer: number;
+  heroPct: number;
+  tone: 'blue' | 'red';
+}) {
+  const color = tone === 'blue' ? '#00d4ff' : '#f87171';
+  const heroColor = tone === 'blue' ? '#64ffda' : '#ff9aaa';
+  const heroValue = heroAlive ? `${Math.ceil(heroHp)}/${heroMaxHp}` : `${Math.ceil(heroRespawnTimer / 1000)}s`;
+  return (
+    <div className="min-w-0 rounded-md bg-dark-900/35 px-2 py-1 font-mono ring-1 ring-white/[0.06]">
+      <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase leading-none tracking-wide">
+        <span className={tone === 'blue' ? 'text-cyber-blue/75' : 'text-red-200/75'}>{label}</span>
+        <span className="tabular-nums text-white/78">{hp}/{maxHp}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-dark-600">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color, boxShadow: `0 0 6px ${color}` }}
+        />
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <span className={tone === 'blue' ? 'shrink-0 text-[10px] font-bold uppercase leading-none tracking-wide text-cyber-green/65' : 'shrink-0 text-[10px] font-bold uppercase leading-none tracking-wide text-red-100/60'}>
+          {heroLabel}
+        </span>
+        <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-dark-600">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${Math.max(0, Math.min(100, heroPct))}%`, background: heroColor, boxShadow: `0 0 5px ${heroColor}` }}
+          />
+        </div>
+        <span className={`shrink-0 text-[10px] font-bold leading-none tabular-nums ${heroAlive ? 'text-white/70' : 'text-yellow-200'}`}>
+          {heroAlive ? heroValue : `R ${heroValue}`}
+        </span>
+      </div>
+    </div>
+  );
+}
 
-  /** Mid-wave gameplay (spawn + combat); pause still shows same strip. */
-  const liveWave = state.phase === 'playing' || state.phase === 'paused';
-  const showSpawnBar = liveWave && state.waveSpawned > 0 && state.enemiesInWave.length > 0;
-  const waveTotalNow = state.enemiesInWave.length;
-  const clearGoldThisWave = state.wave > 0 ? WAVE_DEFS[state.wave - 1]?.goldBonus : undefined;
-  /** Roster chips to show mid-wave — same layout as between-break “next wave” preview (wave 0 uses incoming wave). */
-  const activeWaveRoster: WaveDef['enemies'] | undefined = liveWave
-    ? state.wave >= 1 && state.wave <= MAX_WAVES
-      ? WAVE_DEFS[state.wave - 1]?.enemies
-      : nextWave?.enemies
-    : undefined;
-  /** Incoming roster when idle; active roster when fighting (includes wave 0 prep). */
-  const rosterGroups: WaveDef['enemies'] | undefined = liveWave
-    ? activeWaveRoster
-    : nextWave?.enemies?.length
-      ? nextWave.enemies
-      : undefined;
+function PerfReadout({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-5 border-b border-white/[0.06] py-1.5 last:border-b-0">
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wide text-white/42">{label}</span>
+      <span className="font-mono text-xs font-bold tabular-nums text-white/82">{value}</span>
+    </div>
+  );
+}
 
+export function HUD({ state, perfStats, onStartMatch, onPause, onSetSpeed }: HUDProps) {
+  const [showPerfStats, setShowPerfStats] = React.useState(false);
   const livesPct = (state.playerBaseHp / state.maxPlayerBaseHp) * 100;
   const livesColor = livesPct > 60 ? '#00ff88' : livesPct > 30 ? '#ffcc00' : '#ff4444';
   const opponentPct = (state.opponentBaseHp / state.maxOpponentBaseHp) * 100;
+  const heroPct = (state.hero.hp / state.hero.maxHp) * 100;
+  const opponentHeroPct = (state.opponentHero.hp / state.opponentHero.maxHp) * 100;
+  const playerTowerCount = state.towers.filter(tower => tower.owner === 'player').length;
+  const opponentTowerCount = state.towers.filter(tower => tower.owner === 'opponent').length;
+  const playerAttackers = state.enemies.filter(enemy => enemy.owner === 'player').length;
+  const opponentAttackers = state.enemies.filter(enemy => enemy.owner === 'opponent').length;
+  const controlsEnabled = state.gameMode !== 'multi_player';
+  const fpsTone =
+    perfStats.fps >= 55
+      ? 'text-cyber-green'
+      : perfStats.fps >= 45
+        ? 'text-yellow-300'
+        : 'text-red-300';
 
-  const showStartWaveBtn =
-    state.phase === 'wave_complete' || (state.phase === 'playing' && state.wave === 0);
-
-  const nextWaveToStart = Math.min(state.wave + 1, MAX_WAVES);
-  const startWaveActionLabel = `Start wave ${nextWaveToStart}`;
-  const startWaveHoverHint =
-    state.wave >= MAX_WAVES
-      ? 'No more waves'
-      : `Next round — click ▶ to start wave ${nextWaveToStart}`;
+  const showStartMatchBtn = state.phase === 'wave_complete';
+  const startMatchActionLabel = 'Start match';
+  const startMatchHoverHint = 'Start PvP match simulation';
 
   const speedPresetButtons = [0.5, 1, 2, 3].map(speed => (
     <button
       key={speed}
       type="button"
       onClick={() => onSetSpeed(speed)}
-      className={`min-w-[2.125rem] rounded-md px-2 py-1.5 font-mono text-sm transition-all ${
+      className={`flex h-8 w-14 items-center justify-center rounded-md font-mono text-sm transition-all ${
         state.gameSpeed === speed
           ? 'bg-cyber-blue font-bold text-dark-900 shadow-cyber'
           : 'text-white/55 hover:text-white'
@@ -146,7 +156,7 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
   ));
 
   return (
-    <div className="grid h-full min-h-0 min-w-0 w-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] items-center gap-x-3 px-3 py-3 bg-dark-800 select-none overflow-hidden">
+    <div className="relative grid h-full min-h-0 min-w-0 w-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] items-center gap-x-3 overflow-visible bg-dark-800 px-3 py-3 select-none">
       {/* Left — resource strip (must clamp to viewport: w-max/chrome used to widen past VIEWPORT_W) */}
       <div className="flex min-h-0 min-w-0 max-h-full w-full items-center self-center overflow-hidden border-r border-white/[0.07] pr-2">
         <div className="flex min-w-0 w-full max-w-full items-stretch overflow-hidden">
@@ -186,14 +196,13 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
         </div>
       </div>
 
-      {/* Center — wave panel height-capped inside fixed HUD row (grid-rows keeps header from growing with content) */}
-      <div className="flex min-h-0 min-w-0 max-h-full justify-center overflow-x-visible overflow-y-hidden px-px py-2">
+      {/* Center — PvP match panel */}
+      <div className="flex h-full min-h-0 min-w-0 items-center justify-center overflow-x-visible overflow-y-hidden px-px">
         <div
-          className="box-border flex max-h-full min-h-0 w-full min-w-0 max-w-xl flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-xl border border-solid border-cyber-green/35 bg-cyber-green/[0.08] px-2.5 py-1.5 shadow-[0_8px_26px_rgba(0,0,0,0.35),0_0_14px_rgba(0,255,136,0.08)] sm:gap-2 sm:px-3 sm:py-2"
+          className="box-border flex h-[5.5rem] min-h-0 w-full min-w-0 max-w-xl flex-col justify-center gap-1 overflow-hidden rounded-xl border border-solid border-cyber-green/35 bg-cyber-green/[0.08] px-2.5 py-1.5 shadow-[0_8px_26px_rgba(0,0,0,0.35),0_0_14px_rgba(0,255,136,0.08)] sm:px-3"
           style={{ backgroundClip: 'padding-box' }}
         >
-          {/* Row 1 — status only (matches live card); totals right */}
-          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-nowrap items-center justify-between gap-x-2 border-b border-solid border-white/[0.09] pb-1.5 sm:gap-x-3 sm:pb-2">
+          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-nowrap items-center justify-between gap-x-2 border-b border-solid border-white/[0.09] pb-1 sm:gap-x-3">
             <div className="flex min-h-0 min-w-0 flex-1 items-center gap-x-2 overflow-hidden">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full sm:h-2.5 sm:w-2.5 ${
@@ -202,167 +211,136 @@ export function HUD({ state, onStartWave, onPause, onSetSpeed }: HUDProps) {
               />
               <span className="min-w-0 truncate font-mono text-xs font-black uppercase leading-none tracking-wide text-cyber-green sm:text-sm">
                 {state.phase === 'paused'
-                  ? `Paused · W${state.wave}`
-                  : state.phase === 'playing' && state.wave > 0
-                    ? `Wave ${state.wave} · Live`
-                    : state.phase === 'wave_complete' && state.wave > 0
-                      ? `Wave ${state.wave} · Clear`
+                  ? 'PVP · PAUSED'
+                  : state.phase === 'playing'
+                    ? 'PVP · LIVE'
+                    : state.phase === 'wave_complete' || state.phase === 'menu'
+                      ? 'PVP · READY'
+                      : state.phase === 'victory'
+                        ? 'PVP · VICTORY'
+                        : state.phase === 'game_over'
+                          ? 'PVP · DEFEAT'
                       : 'Ready'}
               </span>
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1 text-right font-mono sm:flex-row sm:items-center sm:gap-3 sm:text-right">
-              {liveWave && waveTotalNow > 0 ? (
-                <>
-                  <span className="whitespace-nowrap text-xs font-semibold tabular-nums leading-none text-white/[0.72] sm:text-sm">
-                    {waveTotalNow} total
-                  </span>
-                  {clearGoldThisWave !== undefined ? (
-                    <span className="whitespace-nowrap text-xs font-bold tabular-nums leading-none text-yellow-300/95 sm:text-sm">
-                      ◆ +{clearGoldThisWave}
-                    </span>
-                  ) : null}
-                </>
-              ) : nextWave && !liveWave ? (
-                <>
-                  <span className="whitespace-nowrap text-xs font-semibold tabular-nums leading-none text-white/[0.72] sm:text-sm">
-                    {totalEnemies} total
-                  </span>
-                  <span className="whitespace-nowrap text-xs font-bold tabular-nums leading-none text-yellow-300/95 sm:text-sm">
-                    ◆ +{nextWave.goldBonus}
-                  </span>
-                </>
-              ) : (
-                <span className="text-[10px] leading-none text-white/25">&nbsp;</span>
-              )}
+            <div className="flex shrink-0 items-center gap-3 text-right font-mono text-[11px] tabular-nums text-white/65">
+              <span>Units {playerAttackers}/{opponentAttackers}</span>
+              <span>Towers {playerTowerCount}/{opponentTowerCount}</span>
             </div>
           </div>
 
-          {/* Row 2 — same layout as live: label + meta + scrolling chips (idle uses Next wave + #) */}
-          {rosterGroups && rosterGroups.length > 0 ? (
-            <div className="flex min-h-0 min-w-0 flex-col gap-1 sm:gap-1.5">
-              <div className="flex min-h-0 w-full min-w-0 items-center gap-2">
-                {liveWave ? (
-                  <>
-                    <span className="hidden shrink-0 font-mono text-[9px] font-bold uppercase leading-none tracking-wide text-white/38 sm:inline sm:text-[10px]">
-                      {state.wave === 0 ? 'Incoming' : 'This wave'}
-                    </span>
-                    <div className="shrink-0 font-mono text-[9px] font-semibold uppercase leading-none tracking-wide tabular-nums text-white/45 sm:text-[10px]">
-                      {state.phase === 'paused' ? (
-                        <span className="text-cyber-blue">Paused</span>
-                      ) : state.wave === 0 || waveTotalNow === 0 ? (
-                        <span className="text-white/35">Prep</span>
-                      ) : state.waveSpawned > 0 ? (
-                        <>
-                          <span className="text-white/35">spawn </span>
-                          <span className="text-white/65">
-                            {state.waveSpawned}/{waveTotalNow}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="italic text-white/32">start…</span>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden shrink-0 font-mono text-[9px] font-bold uppercase leading-none tracking-wide text-white/38 sm:inline sm:text-[10px]">
-                      Next wave
-                    </span>
-                    <div className="flex shrink-0 items-baseline gap-1.5 font-mono leading-none">
-                      <span className="text-base font-black tabular-nums text-cyber-green sm:text-lg">{nextWaveIdx + 1}</span>
-                      {state.phase === 'playing' && state.wave === 0 ? (
-                        <span className="text-[9px] font-semibold uppercase tracking-wide text-white/35 sm:text-[10px]">prep</span>
-                      ) : null}
-                    </div>
-                  </>
-                )}
-                <div className="min-h-0 min-w-0 flex-1">
-                  <WaveEnemyChips groups={rosterGroups} />
-                </div>
-              </div>
-            </div>
-          ) : !liveWave && !nextWave ? (
-            <p className="py-1 text-center font-mono text-xs text-white/35">—</p>
-          ) : liveWave ? (
-            <p className="py-0.5 text-center font-mono text-xs text-white/35">—</p>
-          ) : null}
-
-          {/* Spawn meter */}
-          {showSpawnBar ? (
-            <>
-              <div className="mt-0.5 shrink-0 border-t border-white/[0.08] pt-1.5" />
-              <div className="h-[3px] shrink-0 overflow-hidden rounded-full bg-dark-600 sm:h-1">
-                <div
-                  className="h-full rounded-full bg-cyber-blue transition-all duration-200"
-                  style={{ width: `${wavePct}%`, boxShadow: '0 0 6px #00d4ff' }}
-                />
-              </div>
-            </>
-          ) : null}
+          <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <MatchSide
+              label="Your Core"
+              hp={state.playerBaseHp}
+              maxHp={state.maxPlayerBaseHp}
+              pct={livesPct}
+              heroLabel="Hero"
+              heroAlive={state.hero.isAlive}
+              heroHp={state.hero.hp}
+              heroMaxHp={state.hero.maxHp}
+              heroRespawnTimer={state.hero.respawnTimer}
+              heroPct={heroPct}
+              tone="blue"
+            />
+            <div className="font-mono text-xs font-black tracking-wide text-white/40">VS</div>
+            <MatchSide
+              label="Enemy Core"
+              hp={state.opponentBaseHp}
+              maxHp={state.maxOpponentBaseHp}
+              pct={opponentPct}
+              heroLabel="Hero"
+              heroAlive={state.opponentHero.isAlive}
+              heroHp={state.opponentHero.hp}
+              heroMaxHp={state.opponentHero.maxHp}
+              heroRespawnTimer={state.opponentHero.respawnTimer}
+              heroPct={opponentHeroPct}
+              tone="red"
+            />
+          </div>
         </div>
       </div>
 
       {/* Right — speed presets separate from Pause / Resume / Start (matches layout during live play) */}
-      <div className="flex min-h-0 min-w-0 max-h-full items-center justify-end gap-2 self-center overflow-hidden border-l border-white/[0.07] pl-2">
-        <div className="hidden min-w-[8rem] shrink-0 flex-col gap-1 rounded-lg border border-red-400/20 bg-red-500/[0.08] px-2 py-1.5 md:flex">
-          <div className="flex items-center justify-between gap-2 font-mono text-[10px] font-bold uppercase tracking-wide">
-            <span className="text-red-200/70">Enemy Core</span>
-            <span className="tabular-nums text-red-200">{state.opponentBaseHp}/{state.maxOpponentBaseHp}</span>
+      <div className="flex min-h-0 min-w-0 max-h-full items-center justify-end gap-3 self-center overflow-visible border-l border-white/[0.07] pl-4">
+        {controlsEnabled ? (
+          <div className="grid shrink-0 grid-cols-2 gap-1.5 rounded-lg border border-white/10 bg-dark-900/55 p-1.5">
+            {speedPresetButtons}
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-dark-600">
-            <div
-              className="h-full rounded-full bg-red-400 transition-all"
-              style={{ width: `${opponentPct}%`, boxShadow: '0 0 6px rgba(248,113,113,0.8)' }}
-            />
-          </div>
-          <div className="font-mono text-[10px] tabular-nums text-white/45">
-            Threat {formatCompactCount(Math.floor(state.offenseResource))}
-          </div>
-        </div>
+        ) : null}
 
-        <div className="mr-2 flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-dark-900/55 px-1 py-1">
-          {speedPresetButtons}
-        </div>
-
-        {showStartWaveBtn ? (
+        <div className="relative flex shrink-0 flex-col items-stretch gap-1.5">
           <button
             type="button"
-            onClick={onStartWave}
-            disabled={state.wave >= MAX_WAVES}
-            title={startWaveHoverHint}
-            aria-label={state.wave >= MAX_WAVES ? 'No more waves' : `${startWaveActionLabel}. Primary control to begin the next round.`}
-            className="flex shrink-0 flex-row items-center gap-1.5 rounded-lg border border-cyber-green/35 bg-cyber-green/[0.08] px-2 py-1.5 transition-[color,background-color,box-shadow,transform,border-color] motion-safe:animate-pulse hover:animate-none hover:border-cyber-green/55 hover:bg-cyber-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-green/35 active:scale-[0.98] disabled:animate-none disabled:cursor-not-allowed disabled:border-white/12 disabled:bg-dark-700/50 disabled:opacity-40 sm:gap-2 sm:px-3 sm:py-2"
+            onClick={() => setShowPerfStats((value) => !value)}
+            aria-expanded={showPerfStats}
+            aria-label="Toggle performance stats"
+            title="Performance stats"
+            className={`flex h-8 min-w-[5.75rem] items-center justify-center rounded-lg border px-2.5 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
+              showPerfStats
+                ? 'border-cyber-blue/55 bg-cyber-blue/15 text-cyber-blue'
+                : 'border-white/12 bg-dark-900/55 text-white/62 hover:border-cyber-blue/35 hover:text-cyber-blue'
+            }`}
           >
-            <span
-              aria-hidden
-              className="shrink-0 font-mono text-sm font-bold leading-none text-cyber-green drop-shadow-[0_0_8px_rgba(0,255,136,0.55)]"
+            <span>Perf</span>
+            <span className={`ml-2 tabular-nums ${fpsTone}`}>{Math.round(perfStats.fps)}</span>
+          </button>
+
+          {showPerfStats ? (
+            <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-52 rounded-lg border border-cyber-blue/25 bg-dark-900/95 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.5),0_0_24px_rgba(0,212,255,0.1)] backdrop-blur">
+              <div className="mb-1.5 flex items-center justify-between border-b border-cyber-blue/15 pb-1.5">
+                <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyber-blue/70">Nerd Stats</span>
+                <span className={`font-mono text-xs font-black tabular-nums ${fpsTone}`}>
+                  {Math.round(perfStats.fps)} FPS
+                </span>
+              </div>
+              <PerfReadout label="Frame" value={`${perfStats.frameMs.toFixed(1)}ms`} />
+              <PerfReadout label="Update" value={`${perfStats.updateMs.toFixed(1)}ms`} />
+              <PerfReadout label="Render" value={`${perfStats.renderMs.toFixed(1)}ms`} />
+              <PerfReadout label="Objects" value={formatCompactCount(perfStats.objects)} />
+              <PerfReadout label="Memory" value={perfStats.memoryMb === null ? 'n/a' : `${perfStats.memoryMb.toFixed(0)}MB`} />
+            </div>
+          ) : null}
+
+          {controlsEnabled && showStartMatchBtn ? (
+            <button
+              type="button"
+              onClick={onStartMatch}
+              title={startMatchHoverHint}
+              aria-label={`${startMatchActionLabel}. Primary control to begin the match.`}
+              className="flex h-8 shrink-0 flex-row items-center justify-center gap-1.5 rounded-lg border border-cyber-green/35 bg-cyber-green/[0.08] px-2 transition-[color,background-color,box-shadow,transform,border-color] motion-safe:animate-pulse hover:animate-none hover:border-cyber-green/55 hover:bg-cyber-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-green/35 active:scale-[0.98] disabled:animate-none disabled:cursor-not-allowed disabled:border-white/12 disabled:bg-dark-700/50 disabled:opacity-40 sm:gap-2"
             >
-              ▶
-            </span>
-            <span className="whitespace-nowrap font-mono text-sm font-semibold uppercase leading-none tracking-wide text-cyber-green/80">
-              {state.wave === MAX_WAVES ? 'Done' : state.wave === 0 ? 'Start' : `Wave ${state.wave + 1}`}
-            </span>
-          </button>
-        ) : null}
+              <span
+                aria-hidden
+                className="shrink-0 font-mono text-sm font-bold leading-none text-cyber-green drop-shadow-[0_0_8px_rgba(0,255,136,0.55)]"
+              >
+                ▶
+              </span>
+              <span className="whitespace-nowrap font-mono text-sm font-semibold uppercase leading-none tracking-wide text-cyber-green/80">
+                Start
+              </span>
+            </button>
+          ) : null}
 
-        {state.phase === 'playing' ? (
-          <button
-            type="button"
-            onClick={onPause}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/15 bg-dark-700/90 px-3 py-2 font-mono text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white"
-          >
-            <span aria-hidden>⏸</span> Pause
-          </button>
-        ) : null}
-        {state.phase === 'paused' ? (
-          <button
-            type="button"
-            onClick={onPause}
-            className="animate-pulse flex shrink-0 items-center gap-1.5 rounded-lg border border-cyber-blue/45 bg-cyber-blue/15 px-3 py-2 font-mono text-sm font-semibold text-cyber-blue transition-colors hover:bg-cyber-blue/25"
-          >
-            <span aria-hidden>▶</span> Resume
-          </button>
-        ) : null}
+          {controlsEnabled && state.phase === 'playing' ? (
+            <button
+              type="button"
+              onClick={onPause}
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-dark-700/90 px-3 font-mono text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white"
+            >
+              <span aria-hidden>⏸</span> Pause
+            </button>
+          ) : null}
+          {controlsEnabled && state.phase === 'paused' ? (
+            <button
+              type="button"
+              onClick={onPause}
+              className="animate-pulse flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyber-blue/45 bg-cyber-blue/15 px-3 font-mono text-sm font-semibold text-cyber-blue transition-colors hover:bg-cyber-blue/25"
+            >
+              <span aria-hidden>▶</span> Resume
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

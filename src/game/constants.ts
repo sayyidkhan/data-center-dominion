@@ -15,6 +15,9 @@ type HeroData = {
     damage: number;
     range: number;
     fireRate: number;
+    maxHp: number;
+    respawnMs: number;
+    healPerSecond: number;
   };
   projectile: {
     speed: number;
@@ -30,6 +33,10 @@ type EconomyData = {
   maxOffenseResource: number;
   offenseResourcePerSecond: number;
   aiAttackIntervalMs: number;
+  aiStartingBuildGold: number;
+  aiBuildGoldPerSecond: number;
+  aiBuildIntervalMs: number;
+  aiMaxTowers: number;
   maxWaves: number;
   sellRefundRate: number;
   scorePerReward: number;
@@ -46,6 +53,13 @@ type MapData = {
   footerGridMinWidth: number;
   pathWaypoints: [number, number][];
   attackPathWaypoints: [number, number][];
+  enemyTowerLoadout: Array<{
+    type: TowerType;
+    gridX: number;
+    gridY: number;
+    damage: number;
+    fireRate: number;
+  }>;
 };
 
 type CombatData = {
@@ -119,6 +133,10 @@ export const STARTING_OFFENSE_RESOURCE = ECONOMY_CONFIG.startingOffenseResource;
 export const MAX_OFFENSE_RESOURCE = ECONOMY_CONFIG.maxOffenseResource;
 export const OFFENSE_RESOURCE_PER_SECOND = ECONOMY_CONFIG.offenseResourcePerSecond;
 export const AI_ATTACK_INTERVAL_MS = ECONOMY_CONFIG.aiAttackIntervalMs;
+export const AI_STARTING_BUILD_GOLD = ECONOMY_CONFIG.aiStartingBuildGold;
+export const AI_BUILD_GOLD_PER_SECOND = ECONOMY_CONFIG.aiBuildGoldPerSecond;
+export const AI_BUILD_INTERVAL_MS = ECONOMY_CONFIG.aiBuildIntervalMs;
+export const AI_MAX_TOWERS = ECONOMY_CONFIG.aiMaxTowers;
 export const MAX_WAVES = ECONOMY_CONFIG.maxWaves;
 export const SELL_REFUND_RATE = ECONOMY_CONFIG.sellRefundRate;
 export const SCORE_PER_REWARD = ECONOMY_CONFIG.scorePerReward;
@@ -131,6 +149,7 @@ export const HERO_START = {
 
 export const HERO_STATS = HERO_CONFIG.stats;
 export const HERO_PROJECTILE = HERO_CONFIG.projectile;
+export const ENEMY_TOWER_LOADOUT = MAP_CONFIG.enemyTowerLoadout;
 
 // Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
 // Path snakes then ends with a long straight horizontal run at row 7 into the bay.

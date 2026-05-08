@@ -1,17 +1,15 @@
 import React from 'react';
 import type { GameState } from '../game/types';
-import { MAX_WAVES } from '../game/constants';
 import { formatCompactCount } from '../formatCompactCount';
 
 interface GameOverlayProps {
   state: GameState;
   onStart: () => void;
   onRestart: () => void;
-  onStartWave: () => void;
   onResume: () => void;
 }
 
-export function GameOverlay({ state, onStart, onRestart, onStartWave, onResume }: GameOverlayProps) {
+export function GameOverlay({ state, onStart, onRestart, onResume }: GameOverlayProps) {
   if (state.phase === 'playing' || state.phase === 'wave_complete') return null;
 
   return (
@@ -67,44 +65,36 @@ function MenuScreen({ onStart }: { onStart: () => void }) {
           </h1>
         </div>
 
-        {/* Subtitle */}
         <p className="max-w-md text-base leading-relaxed text-white/45 font-mono">
-          Build towers. Defend the data center.<br />Survive {MAX_WAVES} waves of relentless intruders.
+          Choose a battle mode. Single player runs locally against an AI opponent.
         </p>
 
-        {/* How to play */}
-        <div className="max-w-md w-full rounded-2xl border border-cyber-blue/20 bg-dark-800/80 p-5">
-          <p className="mb-3 font-mono text-xs uppercase tracking-widest text-cyber-blue/70">Quick Guide</p>
-          <div className="flex flex-col gap-3 text-left">
-            {[
-              ['1', 'Select a tower from the shop panel'],
-              ['2', 'Click an empty grid cell to place it'],
-              ['3', 'Press Start Wave or [Space] to begin'],
-              ['4', 'Upgrade placed towers for more power'],
-            ].map(([n, t]) => (
-              <div key={n} className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyber-blue/50 bg-cyber-blue/20">
-                  <span className="font-mono text-xs font-bold text-cyber-blue">{n}</span>
-                </div>
-                <span className="font-mono text-sm text-white/65">{t}</span>
-              </div>
-            ))}
-          </div>
+        <div className="grid w-full max-w-xl grid-cols-2 gap-4">
+          <button
+            onClick={onStart}
+            className="group flex min-h-36 flex-col items-start justify-between rounded-2xl border border-cyber-blue/45 bg-cyber-blue/[0.12] p-5 text-left transition-all hover:scale-[1.02] hover:bg-cyber-blue/[0.18] active:scale-[0.98]"
+            style={{ boxShadow: '0 0 30px rgba(0,212,255,0.16), 0 4px 20px rgba(0,0,0,0.3)' }}
+          >
+            <span className="font-mono text-xs font-bold uppercase tracking-widest text-cyber-blue/75">Local Mode</span>
+            <span className="font-mono text-2xl font-black uppercase tracking-wide text-white">Single Player</span>
+            <span className="font-mono text-xs leading-relaxed text-white/50">
+              Fight the AI, control start/pause/speed, build defenses, and attack the enemy data center.
+            </span>
+          </button>
+
+          <button
+            disabled
+            className="flex min-h-36 cursor-not-allowed flex-col items-start justify-between rounded-2xl border border-white/[0.08] bg-dark-700/45 p-5 text-left opacity-55"
+          >
+            <span className="font-mono text-xs font-bold uppercase tracking-widest text-white/35">Online Mode</span>
+            <span className="font-mono text-2xl font-black uppercase tracking-wide text-white/50">Multiplayer</span>
+            <span className="font-mono text-xs leading-relaxed text-white/35">
+              Coming soon. Controls will be match-authoritative when real players connect.
+            </span>
+          </button>
         </div>
 
-        <button
-          onClick={onStart}
-          className="px-10 py-3.5 font-bold text-dark-900 rounded-xl text-lg font-mono uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
-          style={{
-            background: 'linear-gradient(135deg, #00d4ff, #0084ff)',
-            boxShadow: '0 0 30px rgba(0,212,255,0.4), 0 4px 20px rgba(0,0,0,0.3)',
-            fontFamily: 'Orbitron, sans-serif',
-          }}
-        >
-          Launch
-        </button>
-
-        <p className="font-mono text-xs text-white/30">Press [Space] to start the first wave</p>
+        <p className="font-mono text-xs text-white/30">Press [Space] to choose Single Player</p>
       </div>
     </div>
   );
@@ -117,7 +107,7 @@ function PauseScreen({ state, onResume, onRestart }: { state: GameState; onResum
       <div className="relative z-10 flex flex-col items-center gap-5 bg-dark-800/90 border border-cyber-blue/30 rounded-3xl p-8 shadow-cyber">
         <h2 className="text-2xl font-black text-white uppercase tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>Paused</h2>
         <div className="flex flex-col gap-2 text-center">
-          <StatLine label="Wave" value={`${state.wave} / ${MAX_WAVES}`} />
+          <StatLine label="Mode" value={state.gameMode === 'single_player' ? 'Single Player' : 'Match'} />
           <StatLine label="Score" value={formatCompactCount(state.score)} />
           <StatLine label="Kills" value={formatCompactCount(state.totalKills)} />
           <StatLine label="Gold Earned" value={formatCompactCount(state.totalGoldEarned)} />
@@ -130,28 +120,6 @@ function PauseScreen({ state, onResume, onRestart }: { state: GameState; onResum
             ↺ Restart
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function WaveCompleteScreen({ state, onNext }: { state: GameState; onNext: () => void }) {
-  if (state.wave >= MAX_WAVES) return null;
-  return (
-    <div className="pointer-events-auto flex flex-col items-center">
-      <div className="relative z-10 flex flex-col items-center gap-4 bg-dark-800/95 border border-cyber-green/40 rounded-2xl px-8 py-5 shadow-cyber-green">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping" />
-          <h3 className="text-lg font-black text-cyber-green uppercase tracking-widest font-mono">Wave {state.wave} Clear!</h3>
-          <div className="w-2 h-2 bg-cyber-green rounded-full animate-ping" />
-        </div>
-        <p className="text-white/40 text-xs font-mono">Prepare for Wave {state.wave + 1}</p>
-        <button
-          onClick={onNext}
-          className="px-8 py-2.5 bg-cyber-green/20 border border-cyber-green/60 rounded-xl text-cyber-green font-bold font-mono text-sm hover:bg-cyber-green/30 hover:shadow-cyber-green transition-all"
-        >
-          ▶ Next Wave
-        </button>
       </div>
     </div>
   );
@@ -171,12 +139,12 @@ function GameOverScreen({ state, onRestart }: { state: GameState; onRestart: () 
           {baseDestroyed ? 'Your data center was destroyed.' : 'The defense line collapsed.'}
         </p>
         <div className="flex flex-col gap-2 text-center">
-          <StatLine label="Reached Wave" value={`${state.wave} / ${MAX_WAVES}`} />
+          <StatLine label="Mode" value={state.gameMode === 'single_player' ? 'Single Player' : 'Match'} />
           <StatLine label="Base HP" value={`${state.playerBaseHp} / ${state.maxPlayerBaseHp}`} />
           <StatLine label="Enemy Core" value={`${state.opponentBaseHp} / ${state.maxOpponentBaseHp}`} />
           <StatLine label="Final Score" value={formatCompactCount(state.score)} />
           <StatLine label="Total Kills" value={formatCompactCount(state.totalKills)} />
-          <StatLine label="Towers Built" value={state.towers.length} />
+          <StatLine label="Towers Built" value={state.towers.filter(tower => tower.owner === 'player').length} />
         </div>
         <button
           onClick={onRestart}
@@ -201,7 +169,7 @@ function VictoryScreen({ state, onRestart }: { state: GameState; onRestart: () =
           Victory!
         </h2>
         <p className="text-white/50 text-sm font-mono">
-          {opponentDestroyed ? 'Opponent data center destroyed!' : `All ${MAX_WAVES} waves defeated!`}
+          {opponentDestroyed ? 'Opponent data center destroyed!' : 'Match won.'}
         </p>
         <div className="flex flex-col gap-2 text-center">
           <StatLine label="Base HP" value={`${state.playerBaseHp} / ${state.maxPlayerBaseHp}`} />
