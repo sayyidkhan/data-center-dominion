@@ -62,8 +62,6 @@ export default function App() {
         const newCamX = Math.max(0, Math.min(MAX_CAM_X, state.cameraX + dir * PAN_SPEED * dt));
         if (newCamX !== state.cameraX) {
           stateRef.current = { ...state, cameraX: newCamX };
-          // force render snapshot so UI mini-map updates
-          setSnapshot({ ...stateRef.current });
         }
       }
       raf = requestAnimationFrame(tick);
@@ -79,9 +77,11 @@ export default function App() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
-      const newCamX = Math.max(0, Math.min(MAX_CAM_X, stateRef.current.cameraX + delta * 1.2));
-      stateRef.current = { ...stateRef.current, cameraX: newCamX };
-      setSnapshot({ ...stateRef.current });
+      const state = stateRef.current;
+      const newCamX = Math.max(0, Math.min(MAX_CAM_X, state.cameraX + delta * 1.2));
+      if (newCamX !== state.cameraX) {
+        stateRef.current = { ...state, cameraX: newCamX };
+      }
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);

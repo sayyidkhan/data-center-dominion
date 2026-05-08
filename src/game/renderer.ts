@@ -23,7 +23,7 @@ export function renderGame(
   // Translate by camera offset
   ctx.translate(-state.cameraX, 0);
 
-  drawMapZones(ctx);
+  drawMapZones(ctx, state.cameraX);
   drawGrid(ctx, state, hoveredCell, state.cameraX, time);
   drawPath(ctx, state, time);
   drawDataCenter(ctx, state, time, 'player');
@@ -35,7 +35,7 @@ export function renderGame(
   drawLaserBeams(ctx, state, time);
   drawProjectiles(ctx, state, time);
   drawEffects(ctx, state.effects, time);
-  drawParticles(ctx, state.particles);
+  drawParticles(ctx, state.particles, state.cameraX);
   drawRangePreview(ctx, state, hoveredCell, state.cameraX);
 
   ctx.restore();
@@ -196,7 +196,11 @@ function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, time: number) {
   ctx.restore();
 }
 
-function drawMapZones(ctx: CanvasRenderingContext2D) {
+function isWorldRectVisible(x: number, w: number, cameraX: number, padding = 0) {
+  return x + w >= cameraX - padding && x <= cameraX + VIEWPORT_W + padding;
+}
+
+function drawMapZones(ctx: CanvasRenderingContext2D, cameraX: number) {
   const third = MAP_W / 3;
   const zones = [
     {
@@ -227,33 +231,43 @@ function drawMapZones(ctx: CanvasRenderingContext2D) {
 
   ctx.save();
   for (const zone of zones) {
-    ctx.fillStyle = zone.fill;
-    ctx.fillRect(zone.x, 0, zone.w, VIEWPORT_H);
+    if (!isWorldRectVisible(zone.x, zone.w, cameraX)) continue;
 
-    const grad = ctx.createLinearGradient(zone.x, 0, zone.x + zone.w, 0);
+    const visibleX = Math.max(zone.x, cameraX);
+    const visibleR = Math.min(zone.x + zone.w, cameraX + VIEWPORT_W);
+    const visibleW = Math.max(0, visibleR - visibleX);
+
+    ctx.fillStyle = zone.fill;
+    ctx.fillRect(visibleX, 0, visibleW, VIEWPORT_H);
+
+    const grad = ctx.createLinearGradient(visibleX, 0, visibleX + visibleW, 0);
     grad.addColorStop(0, 'rgba(255,255,255,0.018)');
     grad.addColorStop(0.5, 'rgba(255,255,255,0)');
     grad.addColorStop(1, 'rgba(0,0,0,0.06)');
     ctx.fillStyle = grad;
-    ctx.fillRect(zone.x, 0, zone.w, VIEWPORT_H);
+    ctx.fillRect(visibleX, 0, visibleW, VIEWPORT_H);
 
-    ctx.strokeStyle = zone.edge;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([8, 10]);
-    ctx.beginPath();
-    ctx.moveTo(zone.x + zone.w, 0);
-    ctx.lineTo(zone.x + zone.w, VIEWPORT_H);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    if (zone.x + zone.w > cameraX && zone.x + zone.w < cameraX + VIEWPORT_W) {
+      ctx.strokeStyle = zone.edge;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([8, 10]);
+      ctx.beginPath();
+      ctx.moveTo(zone.x + zone.w, 0);
+      ctx.lineTo(zone.x + zone.w, VIEWPORT_H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
     ctx.font = 'bold 12px JetBrains Mono, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = zone.text;
-    ctx.fillText(zone.label, zone.x + zone.w / 2, 10);
+    const labelX = Math.max(visibleX + 72, Math.min(zone.x + zone.w / 2, visibleX + visibleW - 72));
+    ctx.fillText(zone.label, labelX, 10);
 
     ctx.fillStyle = 'rgba(255,255,255,0.022)';
-    for (let x = zone.x + 18; x < zone.x + zone.w; x += 72) {
+    const firstStripe = zone.x + 18 + Math.max(0, Math.floor((visibleX - zone.x - 18) / 72)) * 72;
+    for (let x = firstStripe; x < visibleR; x += 72) {
       ctx.fillRect(x, 0, 1, VIEWPORT_H);
     }
   }
@@ -296,8 +310,10 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, hoveredCell: 
 
 function drawPath(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   // Draw path tiles
+  const startCol = Math.max(0, Math.floor(state.cameraX / CELL_SIZE));
+  const endCol = Math.min(GRID_COLS, startCol + VIEWPORT_COLS + 2);
   for (let row = 0; row < GRID_ROWS; row++) {
-    for (let col = 0; col < GRID_COLS; col++) {
+    for (let col = startCol; col < endCol; col++) {
       if (state.grid[row][col] === 'path') {
         const x = col * CELL_SIZE;
         const y = row * CELL_SIZE;
@@ -328,7 +344,12 @@ function drawPathLine(ctx: CanvasRenderingContext2D, path: Vec2[], color: string
   ctx.lineDashOffset = 0;
 }
 
-function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: number, side: 'player' | 'opponent') {
+function drawDataCenter(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  time: number,
+  side: 'player' | 'opponent'
+) {
   const S = CELL_SIZE;
   const isOpponent = side === 'opponent';
   const pathEnd = isOpponent ? state.attackPath[state.attackPath.length - 1] : state.path[state.path.length - 1];
@@ -342,26 +363,47 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   const campusL  = isOpponent ? MAP_W - campusW : 0;
   const campusR  = campusL + campusW;
   const campusT  = pathEnd.y - campusH / 2;
+  const isVisible = isWorldRectVisible(campusL - 18, campusW + 36, state.cameraX, S * 2);
+  if (!isVisible) return;
+
+  const theme = isOpponent
+    ? {
+        primary: '#ff5c78',
+        primaryRgb: '255,92,120',
+        bright: '#ffccd5',
+        soft: '#ff9aaa',
+        accent: '#ff8a5c',
+        accentRgb: '255,138,92',
+        success: '#ffdf7a',
+        successRgb: '255,223,122',
+      }
+    : {
+        primary: '#00d4ff',
+        primaryRgb: '0,212,255',
+        bright: '#6bdcff',
+        soft: '#80deea',
+        accent: '#29b6f6',
+        accentRgb: '41,182,246',
+        success: '#64ffda',
+        successRgb: '100,255,218',
+      };
 
   ctx.save();
-  if (isOpponent) {
-    ctx.filter = 'hue-rotate(142deg) saturate(1.25) brightness(1.06)';
-  }
 
   // ─── Outer campus glow — two-layer: soft wide + tight bright ──────────────
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = theme.primary;
   ctx.shadowBlur  = 40 * pulse;
-  ctx.fillStyle   = 'rgba(0,212,255,0.05)';
+  ctx.fillStyle   = `rgba(${theme.primaryRgb},0.05)`;
   roundedRect(ctx, campusL - 14, campusT - 14, campusW + 28, campusH + 28, 12);
   ctx.fill();
   ctx.shadowBlur  = 12 * pulse;
-  ctx.fillStyle   = 'rgba(0,212,255,0.04)';
+  ctx.fillStyle   = `rgba(${theme.primaryRgb},0.04)`;
   roundedRect(ctx, campusL - 5, campusT - 5, campusW + 10, campusH + 10, 8);
   ctx.fill();
   ctx.shadowBlur = 0;
 
   // ─── Perimeter fence — animated marching-ants dash ────────────────────────
-  ctx.strokeStyle = `rgba(79,195,247,${0.35 + 0.15 * pulse})`;
+  ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.35 + 0.15 * pulse})`;
   ctx.lineWidth   = 1;
   ctx.setLineDash([5, 4]);
   ctx.lineDashOffset = -(time * 8) % 9;
@@ -374,7 +416,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   const drawRackPanel = (px: number, py: number, pw: number, ph: number, rows: number, cols: number) => {
     // chassis
     ctx.fillStyle   = '#0b1520';
-    ctx.strokeStyle = 'rgba(79,195,247,0.45)';
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},0.45)`;
     ctx.lineWidth   = 1;
     roundedRect(ctx, px, py, pw, ph, 3);
     ctx.fill();
@@ -388,7 +430,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
       // LED dots per slot
       for (let c = 0; c < cols; c++) {
         const active = (r * cols + c + Math.floor(time * 0.7)) % (rows * cols) < Math.ceil(rows * cols * 0.65);
-        ctx.fillStyle   = active ? ((r + c) % 3 === 0 ? '#6aff9a' : '#5ecbff') : '#1a2a3a';
+        ctx.fillStyle   = active ? ((r + c) % 3 === 0 ? theme.success : theme.bright) : '#1a2a3a';
         ctx.shadowColor = ctx.fillStyle;
         ctx.shadowBlur  = active ? 5 * pulse : 0;
         const dx = px + 5 + c * ((pw - 10) / (cols - 1 || 1));
@@ -407,7 +449,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   const hallY = campusT + 3;
 
   ctx.fillStyle   = '#08111e';
-  ctx.strokeStyle = '#4fc3f7';
+  ctx.strokeStyle = theme.bright;
   ctx.lineWidth   = 1.5;
   roundedRect(ctx, hallX, hallY, hallW, hallH, 5);
   ctx.fill();
@@ -416,7 +458,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   // Roof stripe
   ctx.fillStyle = '#0d1b2a';
   ctx.fillRect(hallX, hallY, hallW, S * 0.28);
-  ctx.strokeStyle = 'rgba(79,195,247,0.4)';
+  ctx.strokeStyle = `rgba(${theme.primaryRgb},0.4)`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(hallX, hallY + S * 0.28);
@@ -426,27 +468,27 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   // Label stripe  "DATA CENTER" — bigger, brighter, double-glow
   ctx.textAlign   = 'center';
   ctx.font        = `bold ${Math.round(S * 0.29)}px monospace`;
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = theme.primary;
   ctx.shadowBlur  = 18 * pulse;
-  ctx.fillStyle   = `rgba(0,212,255,${0.55 + 0.2 * pulse})`;
-  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
+  ctx.fillStyle   = `rgba(${theme.primaryRgb},${0.55 + 0.2 * pulse})`;
+  ctx.fillText(isOpponent ? 'ENEMY CORE' : 'DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
   ctx.shadowBlur  = 6;
   ctx.fillStyle   = 'rgba(255,255,255,0.82)';
-  ctx.fillText('DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
+  ctx.fillText(isOpponent ? 'ENEMY CORE' : 'DATA CENTER', hallX + hallW / 2, hallY + S * 0.26);
   ctx.shadowBlur  = 0;
 
   // Thin animated network-traffic bar under the label
   const trafficW  = hallW - 12;
   const trafficY  = hallY + S * 0.34;
-  ctx.fillStyle   = 'rgba(0,212,255,0.08)';
+  ctx.fillStyle   = `rgba(${theme.primaryRgb},0.08)`;
   ctx.fillRect(hallX + 6, trafficY, trafficW, 3);
   const trafficFill = ((time * 0.4) % 1) * trafficW;
   const tGrad = ctx.createLinearGradient(hallX + 6, 0, hallX + 6 + trafficW, 0);
-  tGrad.addColorStop(0,   'rgba(0,212,255,0)');
-  tGrad.addColorStop(Math.max(0, trafficFill / trafficW - 0.15), 'rgba(0,212,255,0)');
-  tGrad.addColorStop(trafficFill / trafficW, 'rgba(0,212,255,0.9)');
-  tGrad.addColorStop(Math.min(1, trafficFill / trafficW + 0.15), 'rgba(0,212,255,0)');
-  tGrad.addColorStop(1,   'rgba(0,212,255,0)');
+  tGrad.addColorStop(0,   `rgba(${theme.primaryRgb},0)`);
+  tGrad.addColorStop(Math.max(0, trafficFill / trafficW - 0.15), `rgba(${theme.primaryRgb},0)`);
+  tGrad.addColorStop(trafficFill / trafficW, `rgba(${theme.primaryRgb},0.9)`);
+  tGrad.addColorStop(Math.min(1, trafficFill / trafficW + 0.15), `rgba(${theme.primaryRgb},0)`);
+  tGrad.addColorStop(1,   `rgba(${theme.primaryRgb},0)`);
   ctx.fillStyle = tGrad;
   ctx.fillRect(hallX + 6, trafficY, trafficW, 3);
 
@@ -460,9 +502,9 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   // Animated scan-line sweeping across rack area
   const scanX = hallX + 6 + ((time * 0.35) % 1) * (hallW - 12);
   const scanGrad = ctx.createLinearGradient(scanX - 10, 0, scanX + 10, 0);
-  scanGrad.addColorStop(0,   'rgba(0,212,255,0)');
-  scanGrad.addColorStop(0.5, `rgba(0,212,255,${0.18 * pulse})`);
-  scanGrad.addColorStop(1,   'rgba(0,212,255,0)');
+  scanGrad.addColorStop(0,   `rgba(${theme.primaryRgb},0)`);
+  scanGrad.addColorStop(0.5, `rgba(${theme.primaryRgb},${0.18 * pulse})`);
+  scanGrad.addColorStop(1,   `rgba(${theme.primaryRgb},0)`);
   ctx.fillStyle = scanGrad;
   ctx.fillRect(scanX - 10, hallY + S * 0.42, 20, rackH);
 
@@ -472,14 +514,14 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     const hcx = hx + S * 0.24;
     const hcy = hallY - S * 0.21;
     ctx.fillStyle   = '#111f2e';
-    ctx.strokeStyle = 'rgba(79,195,247,0.5)';
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},0.5)`;
     ctx.lineWidth   = 1;
     roundedRect(ctx, hx, hallY - S * 0.38, S * 0.48, S * 0.35, 2);
     ctx.fill();
     ctx.stroke();
     // spinning fan blades
     const fanAngle = time * 3.5 + i * 0.8;
-    ctx.strokeStyle = `rgba(0,212,255,${0.55 * pulse})`;
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.55 * pulse})`;
     ctx.lineWidth   = 1;
     for (let blade = 0; blade < 4; blade++) {
       const a = fanAngle + blade * (Math.PI / 2);
@@ -488,7 +530,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
       ctx.lineTo(hcx + Math.cos(a) * S * 0.11, hcy + Math.sin(a) * S * 0.11);
       ctx.stroke();
     }
-    ctx.strokeStyle = `rgba(0,212,255,${0.25 * pulse})`;
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.25 * pulse})`;
     ctx.beginPath();
     ctx.arc(hcx, hcy, S * 0.12, 0, Math.PI * 2);
     ctx.stroke();
@@ -501,17 +543,17 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   const coolY = hallY + hallH + S * 0.3;
 
   ctx.fillStyle   = '#060f1c';
-  ctx.strokeStyle = '#29b6f6';
+  ctx.strokeStyle = theme.accent;
   ctx.lineWidth   = 1.5;
   roundedRect(ctx, coolX, coolY, coolW, coolH, 5);
   ctx.fill();
   ctx.stroke();
 
   // Label
-  ctx.fillStyle = 'rgba(41,182,246,0.7)';
+  ctx.fillStyle = `rgba(${theme.accentRgb},0.7)`;
   ctx.font      = `bold ${Math.round(S * 0.16)}px monospace`;
   ctx.textAlign = 'center';
-  ctx.shadowColor = '#29b6f6';
+  ctx.shadowColor = theme.accent;
   ctx.shadowBlur  = 6 * pulse2;
   ctx.fillText('COOLING', coolX + coolW / 2, coolY + S * 0.22);
   ctx.shadowBlur = 0;
@@ -523,7 +565,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     const tw = (coolW - 28) / 3;
     const th = coolH - S * 0.55;
     ctx.fillStyle   = '#0a1828';
-    ctx.strokeStyle = `rgba(41,182,246,${0.45 + 0.25 * pulse2})`;
+    ctx.strokeStyle = `rgba(${theme.accentRgb},${0.45 + 0.25 * pulse2})`;
     ctx.lineWidth   = 1;
     roundedRect(ctx, tx, ty, tw, th, 3);
     ctx.fill();
@@ -533,13 +575,13 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     const fillPct  = 0.55 + Math.sin(time * 0.7 + i * 1.1) * 0.25;
     const fillH    = (th - 6) * fillPct;
     const fillGrad = ctx.createLinearGradient(tx, ty + th - 3 - fillH, tx, ty + th - 3);
-    fillGrad.addColorStop(0,   `rgba(41,182,246,${0.12 * pulse2})`);
-    fillGrad.addColorStop(1,   `rgba(41,182,246,${0.45 * pulse2})`);
+    fillGrad.addColorStop(0,   `rgba(${theme.accentRgb},${0.12 * pulse2})`);
+    fillGrad.addColorStop(1,   `rgba(${theme.accentRgb},${0.45 * pulse2})`);
     ctx.fillStyle = fillGrad;
     ctx.fillRect(tx + 3, ty + th - 3 - fillH, tw - 6, fillH);
 
     // Fill level "waterline" bright edge
-    ctx.strokeStyle = `rgba(128,222,234,${0.7 * pulse2})`;
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.7 * pulse2})`;
     ctx.lineWidth   = 1;
     ctx.beginPath();
     ctx.moveTo(tx + 3, ty + th - 3 - fillH);
@@ -548,8 +590,8 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
 
     // Status LED at top of each tower — blinks independently
     const ledOn = Math.sin(time * (2.2 + i * 0.9) + i * 1.7) > 0.2;
-    ctx.fillStyle   = ledOn ? '#29b6f6' : '#0d2030';
-    ctx.shadowColor = '#29b6f6';
+    ctx.fillStyle   = ledOn ? theme.accent : '#0d2030';
+    ctx.shadowColor = theme.accent;
     ctx.shadowBlur  = ledOn ? 9 * pulse2 : 0;
     ctx.beginPath();
     ctx.arc(tx + tw / 2, ty + 6, 2.5, 0, Math.PI * 2);
@@ -559,7 +601,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     // Steam rings rising from top
     for (let r = 0; r < 3; r++) {
       const alpha = ((time * 0.6 + i * 0.4 + r * 0.33) % 1);
-      ctx.strokeStyle = `rgba(128,222,234,${(1 - alpha) * 0.4 * pulse2})`;
+      ctx.strokeStyle = `rgba(${theme.primaryRgb},${(1 - alpha) * 0.4 * pulse2})`;
       ctx.lineWidth   = 1;
       ctx.beginPath();
       ctx.arc(tx + tw / 2, ty + th * 0.22 - alpha * S * 0.5, tw * 0.28 + alpha * 4, 0, Math.PI * 2);
@@ -629,22 +671,22 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
 
   // Bay recess in main body
   ctx.fillStyle   = '#030810';
-  ctx.strokeStyle = '#6bdcff';
+  ctx.strokeStyle = theme.bright;
   ctx.lineWidth   = 1.5;
   roundedRect(ctx, bayX, bayY, bayW, bayH, 4);
   ctx.fill();
   ctx.stroke();
 
   // Animated glow inside bay
-  ctx.shadowColor = '#00d4ff';
+  ctx.shadowColor = theme.primary;
   ctx.shadowBlur  = 18 * pulse;
-  ctx.fillStyle   = `rgba(0,212,255,${0.12 + 0.1 * pulse})`;
+  ctx.fillStyle   = `rgba(${theme.primaryRgb},${0.12 + 0.1 * pulse})`;
   roundedRect(ctx, bayX + 4, bayY + 4, bayW - 8, bayH - 8, 3);
   ctx.fill();
   ctx.shadowBlur = 0;
 
   // Horizontal scan bars in bay
-  ctx.strokeStyle = 'rgba(128,222,234,0.6)';
+  ctx.strokeStyle = `rgba(${theme.primaryRgb},0.6)`;
   ctx.lineWidth   = 1;
   for (let b = 1; b <= 4; b++) {
     const by = bayY + b * (bayH / 5);
@@ -663,7 +705,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     if (ph <= 0) return;
     // body
     ctx.fillStyle   = '#0a1826';
-    ctx.strokeStyle = `rgba(0,212,255,${0.45 + 0.25 * pulse})`;
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.45 + 0.25 * pulse})`;
     ctx.lineWidth   = 1;
     roundedRect(ctx, px, py, pw, ph, 2);
     ctx.fill();
@@ -672,16 +714,16 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
     const scanProgress = (time * 0.9 * scanDir + (scanDir === -1 ? 1 : 0)) % 1;
     const scanY = py + scanProgress * ph;
     const sGrad = ctx.createLinearGradient(px, scanY - 6, px, scanY + 6);
-    sGrad.addColorStop(0,   'rgba(0,212,255,0)');
-    sGrad.addColorStop(0.5, `rgba(0,212,255,${0.55 * pulse})`);
-    sGrad.addColorStop(1,   'rgba(0,212,255,0)');
+    sGrad.addColorStop(0,   `rgba(${theme.primaryRgb},0)`);
+    sGrad.addColorStop(0.5, `rgba(${theme.primaryRgb},${0.55 * pulse})`);
+    sGrad.addColorStop(1,   `rgba(${theme.primaryRgb},0)`);
     ctx.fillStyle = sGrad;
     ctx.fillRect(px + 2, Math.max(py, scanY - 6), pw - 4, 12);
     // two status LEDs on panel
     for (let led = 0; led < 2; led++) {
       const ledOn = Math.sin(time * (2.8 + led * 1.3) + led * 2.1) > 0;
-      ctx.fillStyle   = ledOn ? '#00d4ff' : '#0d2030';
-      ctx.shadowColor = '#00d4ff';
+      ctx.fillStyle   = ledOn ? theme.primary : '#0d2030';
+      ctx.shadowColor = theme.primary;
       ctx.shadowBlur  = ledOn ? 7 * pulse : 0;
       ctx.beginPath();
       ctx.arc(px + pw * (0.3 + led * 0.4), py + ph * 0.75, 2, 0, Math.PI * 2);
@@ -707,10 +749,10 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   const beamStartX = isOpponent ? bayX : bayX + bayW;
   const beamEndX = isOpponent ? bayX - S * 1.5 : bayX + bayW + S * 1.5;
   const bGrad2 = ctx.createLinearGradient(beamStartX, pathEnd.y, beamEndX, pathEnd.y);
-  bGrad2.addColorStop(0,   `rgba(0,212,255,${beamAlpha2 * 0.8})`);
-  bGrad2.addColorStop(0.4, `rgba(0,212,255,${beamAlpha2 * 0.35})`);
-  bGrad2.addColorStop(1,   'rgba(0,212,255,0)');
-  ctx.shadowColor = '#00d4ff';
+  bGrad2.addColorStop(0,   `rgba(${theme.primaryRgb},${beamAlpha2 * 0.8})`);
+  bGrad2.addColorStop(0.4, `rgba(${theme.primaryRgb},${beamAlpha2 * 0.35})`);
+  bGrad2.addColorStop(1,   `rgba(${theme.primaryRgb},0)`);
+  ctx.shadowColor = theme.primary;
   ctx.shadowBlur  = 10 * beamAlpha2;
   ctx.fillStyle   = bGrad2;
   ctx.fillRect(isOpponent ? bayX - S * 1.5 : bayX + bayW, pathEnd.y - 5, S * 1.5, 10);
@@ -719,7 +761,7 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   // ─── Antenna / comms mast on rooftop ────────────────────────────────────────
   const antX = campusL + campusW * 0.72;
   const antBase = campusT - 2;
-  ctx.strokeStyle = '#6bdcff';
+  ctx.strokeStyle = theme.bright;
   ctx.lineWidth   = 1.5;
   ctx.beginPath();
   ctx.moveTo(antX, antBase);
@@ -730,15 +772,15 @@ function drawDataCenter(ctx: CanvasRenderingContext2D, state: GameState, time: n
   for (let arm = 0; arm < 3; arm++) {
     const ay = antBase - S * (0.3 + arm * 0.22);
     const aw = S * (0.28 - arm * 0.06);
-    ctx.strokeStyle = `rgba(107,220,255,${0.6 - arm * 0.15})`;
+    ctx.strokeStyle = `rgba(${theme.primaryRgb},${0.6 - arm * 0.15})`;
     ctx.beginPath();
     ctx.moveTo(antX - aw, ay);
     ctx.lineTo(antX + aw, ay);
     ctx.stroke();
   }
   // beacon
-  ctx.fillStyle   = `rgba(100,255,218,${pulse})`;
-  ctx.shadowColor = '#64ffda';
+  ctx.fillStyle   = `rgba(${theme.successRgb},${pulse})`;
+  ctx.shadowColor = theme.success;
   ctx.shadowBlur  = 10 * pulse;
   ctx.beginPath();
   ctx.arc(antX, antBase - S * 0.9, 2.5, 0, Math.PI * 2);
@@ -810,6 +852,7 @@ function drawPortal(ctx: CanvasRenderingContext2D, point: Vec2 | undefined, time
 
 function drawTowers(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   for (const tower of state.towers) {
+    if (!isWorldRectVisible(tower.x - tower.range, tower.range * 2, state.cameraX, CELL_SIZE)) continue;
     const def = TOWER_DEFS[tower.type];
     const isSelected = state.selectedTowerId === tower.id;
     const x = tower.x;
@@ -963,6 +1006,7 @@ function drawTowerShape(ctx: CanvasRenderingContext2D, type: Tower['type'], colo
 
 function drawEnemies(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   for (const enemy of state.enemies) {
+    if (!isWorldRectVisible(enemy.x - 28, 56, state.cameraX, CELL_SIZE)) continue;
     const def = ENEMY_DEFS[enemy.type];
     const x = enemy.x;
     const y = enemy.y;
@@ -1113,6 +1157,7 @@ function tintColor(hex: string, tint: string, amount: number) {
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, state: GameState, time: number) {
   for (const proj of state.projectiles) {
+    if (!isWorldRectVisible(proj.x - 24, 48, state.cameraX, CELL_SIZE)) continue;
     const target = state.enemies.find(e => e.id === proj.targetId);
     const angle = target ? Math.atan2(target.y - proj.y, target.x - proj.x) : 0;
 
@@ -1199,6 +1244,9 @@ function drawLaserBeams(ctx: CanvasRenderingContext2D, state: GameState, time: n
 
     const target = state.enemies.find(e => e.id === tower.beamTargetId);
     if (!target) continue;
+    const minX = Math.min(tower.x, target.x);
+    const maxX = Math.max(tower.x, target.x);
+    if (!isWorldRectVisible(minX, maxX - minX, state.cameraX, CELL_SIZE)) continue;
 
     const def = TOWER_DEFS[tower.type];
     const cycleMs = tower.laserCycleMs ?? 0;
@@ -1404,8 +1452,9 @@ function drawEffects(ctx: CanvasRenderingContext2D, effects: VisualEffect[], tim
   }
 }
 
-function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]) {
+function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[], cameraX: number) {
   for (const p of particles) {
+    if (!isWorldRectVisible(p.x - 12, 24, cameraX, CELL_SIZE)) continue;
     const alpha = p.life / p.maxLife;
     ctx.save();
     ctx.globalAlpha = alpha;
