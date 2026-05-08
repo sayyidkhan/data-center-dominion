@@ -136,22 +136,31 @@ export function HUD({ state, perfStats, onStartMatch, onPause, onSetSpeed }: HUD
         ? 'text-yellow-300'
         : 'text-red-300';
 
+  const fpsLedStyle =
+    perfStats.fps >= 55
+      ? { backgroundColor: '#00ff88', boxShadow: '0 0 8px rgba(0,255,136,0.75)' }
+      : perfStats.fps >= 45
+        ? { backgroundColor: '#fde047', boxShadow: '0 0 8px rgba(253,224,71,0.65)' }
+        : { backgroundColor: '#fca5a5', boxShadow: '0 0 8px rgba(252,165,165,0.65)' };
+
   const showStartMatchBtn = state.phase === 'wave_complete';
   const startMatchActionLabel = 'Start match';
   const startMatchHoverHint = 'Start PvP match simulation';
 
-  const speedPresetButtons = [0.5, 1, 2, 3].map(speed => (
+  const speedPresetButtons = [0.5, 1, 2, 3].map((speed, i) => (
     <button
       key={speed}
       type="button"
       onClick={() => onSetSpeed(speed)}
-      className={`flex h-8 w-14 items-center justify-center rounded-md font-mono text-sm transition-all ${
+      className={`flex h-7 w-10 items-center justify-center font-mono text-xs font-bold tabular-nums transition-all focus-visible:outline-none active:scale-95 ${
+        i === 0 ? 'rounded-l-md' : i === 3 ? 'rounded-r-md' : ''
+      } ${
         state.gameSpeed === speed
-          ? 'bg-cyber-blue font-bold text-dark-900 shadow-cyber'
-          : 'text-white/55 hover:text-white'
+          ? 'bg-cyber-blue text-dark-900 shadow-[0_0_10px_rgba(0,212,255,0.4)] z-[1]'
+          : 'bg-dark-700/80 text-white/45 hover:bg-dark-600 hover:text-white/80'
       }`}
     >
-      {speed === 0.5 ? '0.5x' : `${speed}x`}
+      {speed === 0.5 ? '.5×' : `${speed}×`}
     </button>
   ));
 
@@ -261,86 +270,86 @@ export function HUD({ state, perfStats, onStartMatch, onPause, onSetSpeed }: HUD
         </div>
       </div>
 
-      {/* Right — speed presets separate from Pause / Resume / Start (matches layout during live play) */}
-      <div className="flex min-h-0 min-w-0 max-h-full items-center justify-end gap-3 self-center overflow-visible border-l border-white/[0.07] pl-4">
-        {controlsEnabled ? (
-          <div className="grid shrink-0 grid-cols-2 gap-1.5 rounded-lg border border-white/10 bg-dark-900/55 p-1.5">
-            {speedPresetButtons}
-          </div>
-        ) : null}
-
-        <div className="relative flex shrink-0 flex-col items-stretch gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowPerfStats((value) => !value)}
-            aria-expanded={showPerfStats}
-            aria-label="Toggle performance stats"
-            title="Performance stats"
-            className={`flex h-8 min-w-[5.75rem] items-center justify-center rounded-lg border px-2.5 font-mono text-xs font-bold uppercase tracking-wide transition-colors ${
-              showPerfStats
-                ? 'border-cyber-blue/55 bg-cyber-blue/15 text-cyber-blue'
-                : 'border-white/12 bg-dark-900/55 text-white/62 hover:border-cyber-blue/35 hover:text-cyber-blue'
-            }`}
-          >
-            <span>Perf</span>
-            <span className={`ml-2 tabular-nums ${fpsTone}`}>{Math.round(perfStats.fps)}</span>
-          </button>
-
-          {showPerfStats ? (
-            <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-52 rounded-lg border border-cyber-blue/25 bg-dark-900/95 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.5),0_0_24px_rgba(0,212,255,0.1)] backdrop-blur">
-              <div className="mb-1.5 flex items-center justify-between border-b border-cyber-blue/15 pb-1.5">
-                <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyber-blue/70">Nerd Stats</span>
-                <span className={`font-mono text-xs font-black tabular-nums ${fpsTone}`}>
-                  {Math.round(perfStats.fps)} FPS
-                </span>
-              </div>
-              <PerfReadout label="Frame" value={`${perfStats.frameMs.toFixed(1)}ms`} />
-              <PerfReadout label="Update" value={`${perfStats.updateMs.toFixed(1)}ms`} />
-              <PerfReadout label="Render" value={`${perfStats.renderMs.toFixed(1)}ms`} />
-              <PerfReadout label="Objects" value={formatCompactCount(perfStats.objects)} />
-              <PerfReadout label="Memory" value={perfStats.memoryMb === null ? 'n/a' : `${perfStats.memoryMb.toFixed(0)}MB`} />
+      {/* Right — speed + perf toggle + action button */}
+      <div className="relative flex min-h-0 min-w-0 max-h-full flex-col items-end justify-center gap-1.5 self-center overflow-visible border-l border-white/[0.07] pl-3">
+        {/* Row 1: speed strip + perf button */}
+        <div className="flex items-center gap-2">
+          {controlsEnabled ? (
+            <div className="flex overflow-hidden rounded-md ring-1 ring-white/10">
+              {speedPresetButtons}
             </div>
           ) : null}
 
-          {controlsEnabled && showStartMatchBtn ? (
-            <button
-              type="button"
-              onClick={onStartMatch}
-              title={startMatchHoverHint}
-              aria-label={`${startMatchActionLabel}. Primary control to begin the match.`}
-              className="flex h-8 shrink-0 flex-row items-center justify-center gap-1.5 rounded-lg border border-cyber-green/35 bg-cyber-green/[0.08] px-2 transition-[color,background-color,box-shadow,transform,border-color] motion-safe:animate-pulse hover:animate-none hover:border-cyber-green/55 hover:bg-cyber-green/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-green/35 active:scale-[0.98] disabled:animate-none disabled:cursor-not-allowed disabled:border-white/12 disabled:bg-dark-700/50 disabled:opacity-40 sm:gap-2"
-            >
-              <span
-                aria-hidden
-                className="shrink-0 font-mono text-sm font-bold leading-none text-cyber-green drop-shadow-[0_0_8px_rgba(0,255,136,0.55)]"
-              >
-                ▶
-              </span>
-              <span className="whitespace-nowrap font-mono text-sm font-semibold uppercase leading-none tracking-wide text-cyber-green/80">
-                Start
-              </span>
-            </button>
-          ) : null}
-
-          {controlsEnabled && state.phase === 'playing' ? (
-            <button
-              type="button"
-              onClick={onPause}
-              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-dark-700/90 px-3 font-mono text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white"
-            >
-              <span aria-hidden>⏸</span> Pause
-            </button>
-          ) : null}
-          {controlsEnabled && state.phase === 'paused' ? (
-            <button
-              type="button"
-              onClick={onPause}
-              className="animate-pulse flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyber-blue/45 bg-cyber-blue/15 px-3 font-mono text-sm font-semibold text-cyber-blue transition-colors hover:bg-cyber-blue/25"
-            >
-              <span aria-hidden>▶</span> Resume
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowPerfStats((v) => !v)}
+            aria-expanded={showPerfStats}
+            aria-label="Toggle performance stats"
+            title="Performance stats"
+            className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 font-mono text-xs font-bold transition-all focus-visible:outline-none ${
+              showPerfStats
+                ? 'bg-cyber-blue/20 text-cyber-blue ring-1 ring-cyber-blue/40'
+                : 'bg-dark-700/80 text-white/45 hover:text-white/75'
+            }`}
+          >
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={fpsLedStyle} aria-hidden />
+            <span>PERF</span>
+            <span className={fpsTone}>{Math.round(perfStats.fps)}</span>
+          </button>
         </div>
+
+        {/* Row 2: action button (Start / Pause / Resume) */}
+        {controlsEnabled && showStartMatchBtn ? (
+          <button
+            type="button"
+            onClick={onStartMatch}
+            title={startMatchHoverHint}
+            aria-label={`${startMatchActionLabel}. Primary control to begin the match.`}
+            className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-cyber-green px-3 font-mono text-xs font-black text-dark-900 shadow-[0_0_14px_rgba(0,255,136,0.35)] transition-all motion-safe:animate-pulse hover:animate-none hover:shadow-[0_0_22px_rgba(0,255,136,0.55)] active:scale-95 focus-visible:outline-none"
+          >
+            <span aria-hidden className="text-[10px]">▶</span>
+            START
+          </button>
+        ) : null}
+
+        {controlsEnabled && state.phase === 'playing' ? (
+          <button
+            type="button"
+            onClick={onPause}
+            className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-dark-700/80 px-3 font-mono text-xs font-bold text-white/70 ring-1 ring-white/10 transition-all hover:bg-dark-600 hover:text-white focus-visible:outline-none"
+          >
+            <span aria-hidden className="text-[10px]">⏸</span>
+            PAUSE
+          </button>
+        ) : null}
+
+        {controlsEnabled && state.phase === 'paused' ? (
+          <button
+            type="button"
+            onClick={onPause}
+            className="flex h-7 w-full animate-pulse items-center justify-center gap-1.5 rounded-md bg-cyber-blue/15 px-3 font-mono text-xs font-bold text-cyber-blue ring-1 ring-cyber-blue/35 transition-all hover:animate-none hover:bg-cyber-blue/25 focus-visible:outline-none"
+          >
+            <span aria-hidden className="text-[10px]">▶</span>
+            RESUME
+          </button>
+        ) : null}
+
+        {/* Perf stats popover */}
+        {showPerfStats ? (
+          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-52 rounded-lg border border-cyber-blue/25 bg-dark-900/95 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.5),0_0_24px_rgba(0,212,255,0.1)] backdrop-blur">
+            <div className="mb-1.5 flex items-center justify-between border-b border-cyber-blue/15 pb-1.5">
+              <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyber-blue/70">Perf</span>
+              <span className={`font-mono text-xs font-black tabular-nums ${fpsTone}`}>
+                {Math.round(perfStats.fps)} FPS
+              </span>
+            </div>
+            <PerfReadout label="Frame" value={`${perfStats.frameMs.toFixed(1)}ms`} />
+            <PerfReadout label="Update" value={`${perfStats.updateMs.toFixed(1)}ms`} />
+            <PerfReadout label="Render" value={`${perfStats.renderMs.toFixed(1)}ms`} />
+            <PerfReadout label="Objects" value={formatCompactCount(perfStats.objects)} />
+            <PerfReadout label="Memory" value={perfStats.memoryMb === null ? 'n/a' : `${perfStats.memoryMb.toFixed(0)}MB`} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
