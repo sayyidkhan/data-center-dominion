@@ -19,10 +19,15 @@ const CHROME_FRAME_STYLE = {
   boxShadow: '0 0 60px rgba(0,212,255,0.08), 0 20px 60px rgba(0,0,0,0.6)',
 } as const;
 
+type MenuStage = 'launch' | 'pick_mode';
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>(createInitialState());
   const [snapshot, setSnapshot] = useState<GameState>(stateRef.current);
+  const [menuStage, setMenuStage] = useState<MenuStage>('launch');
+  const menuStageRef = useRef<MenuStage>('launch');
+  menuStageRef.current = menuStage;
   const [perfStats, setPerfStats] = useState<PerfStats>({
     fps: 60,
     frameMs: 16.7,
@@ -56,6 +61,15 @@ export default function App() {
     start();
     return stop;
   }, [start, stop]);
+
+  const prevPhaseRef = useRef<GameState['phase'] | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = snapshot.phase;
+    if (snapshot.phase === 'menu' && prev !== undefined && prev !== 'menu') {
+      setMenuStage('launch');
+    }
+  }, [snapshot.phase]);
 
   // Edge-pan ticker — runs separately from game loop
   useEffect(() => {
@@ -247,13 +261,20 @@ export default function App() {
       const state = stateRef.current;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        if (state.phase === 'menu') handleStart();
-        else if (state.phase === 'wave_complete') handleStartMatch();
+        if (state.phase === 'menu') {
+          if (menuStageRef.current === 'launch') setMenuStage('pick_mode');
+          else handleStart();
+        } else if (state.phase === 'wave_complete') handleStartMatch();
       }
       if (e.key === 'p' || e.key === 'P') {
         if (state.phase === 'playing' || state.phase === 'paused') handlePause();
       }
       if (e.key === 'Escape') {
+        if (state.phase === 'menu' && menuStageRef.current === 'pick_mode') {
+          e.preventDefault();
+          setMenuStage('launch');
+          return;
+        }
         stateRef.current = { ...stateRef.current, selectedTowerType: null, selectedTowerId: null };
         setSnapshot({ ...stateRef.current });
       }
@@ -356,7 +377,7 @@ export default function App() {
         >
         {/* Same fixed shell on menu & in-game so scale-to-fit and footprint match */}
         <div
-          className={`relative z-20 flex shrink-0 flex-col ${
+          className={`relative z-30 flex shrink-0 flex-col ${
             !isGameActive ? 'border-b border-cyber-blue/20' : ''
           } ${isGameActive ? 'overflow-visible bg-dark-800' : 'overflow-hidden bg-dark-900'}`}
           style={{ height: HUD_SLOT_H }}
@@ -376,7 +397,7 @@ export default function App() {
 
         {/* Main: canvas + shop — shrink-0 so flex parents never squash fixed canvas height */}
         <div
-          className="flex shrink-0 items-stretch"
+          className="relative z-10 flex shrink-0 items-stretch"
           style={{ height: VIEWPORT_H + FOOTER_H }}
           onClick={handleOutsideSelectionClick}
         >
@@ -396,6 +417,9 @@ export default function App() {
               />
               <GameOverlay
                 state={snapshot}
+                menuStage={menuStage}
+                onContinueToModeSelect={() => setMenuStage('pick_mode')}
+                onBackToLaunch={() => setMenuStage('launch')}
                 onStart={handleStart}
                 onVersusIntroComplete={handleVersusIntroComplete}
                 onRestart={handleRestart}

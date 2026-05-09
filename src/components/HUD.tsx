@@ -280,22 +280,40 @@ export function HUD({ state, perfStats, onStartMatch, onPause, onSetSpeed }: HUD
             </div>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => setShowPerfStats((v) => !v)}
-            aria-expanded={showPerfStats}
-            aria-label="Toggle performance stats"
-            title="Performance stats"
-            className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 font-mono text-xs font-bold transition-all focus-visible:outline-none ${
-              showPerfStats
-                ? 'bg-cyber-blue/20 text-cyber-blue ring-1 ring-cyber-blue/40'
-                : 'bg-dark-700/80 text-white/45 hover:text-white/75'
-            }`}
-          >
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={fpsLedStyle} aria-hidden />
-            <span>PERF</span>
-            <span className={fpsTone}>{Math.round(perfStats.fps)}</span>
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowPerfStats((v) => !v)}
+              aria-expanded={showPerfStats}
+              aria-label="Toggle performance stats"
+              title="Performance stats"
+              className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 font-mono text-xs font-bold transition-all focus-visible:outline-none ${
+                showPerfStats
+                  ? 'bg-cyber-blue/20 text-cyber-blue ring-1 ring-cyber-blue/40'
+                  : 'bg-dark-700/80 text-white/45 hover:text-white/75'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={fpsLedStyle} aria-hidden />
+              <span>PERF</span>
+              <span className={fpsTone}>{Math.round(perfStats.fps)}</span>
+            </button>
+
+            {showPerfStats ? (
+              <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-cyber-blue/25 bg-dark-900/95 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.5),0_0_24px_rgba(0,212,255,0.1)] backdrop-blur">
+                <div className="mb-1.5 flex items-center justify-between border-b border-cyber-blue/15 pb-1.5">
+                  <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyber-blue/70">Perf</span>
+                  <span className={`font-mono text-xs font-black tabular-nums ${fpsTone}`}>
+                    {Math.round(perfStats.fps)} FPS
+                  </span>
+                </div>
+                <PerfReadout label="Frame" value={`${perfStats.frameMs.toFixed(1)}ms`} />
+                <PerfReadout label="Update" value={`${perfStats.updateMs.toFixed(1)}ms`} />
+                <PerfReadout label="Render" value={`${perfStats.renderMs.toFixed(1)}ms`} />
+                <PerfReadout label="Objects" value={formatCompactCount(perfStats.objects)} />
+                <PerfReadout label="Memory" value={perfStats.memoryMb === null ? 'n/a' : `${perfStats.memoryMb.toFixed(0)}MB`} />
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* Row 2: action button (Start / Pause / Resume) */}
@@ -334,22 +352,6 @@ export function HUD({ state, perfStats, onStartMatch, onPause, onSetSpeed }: HUD
           </button>
         ) : null}
 
-        {/* Perf stats popover */}
-        {showPerfStats ? (
-          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-52 rounded-lg border border-cyber-blue/25 bg-dark-900/95 px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.5),0_0_24px_rgba(0,212,255,0.1)] backdrop-blur">
-            <div className="mb-1.5 flex items-center justify-between border-b border-cyber-blue/15 pb-1.5">
-              <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyber-blue/70">Perf</span>
-              <span className={`font-mono text-xs font-black tabular-nums ${fpsTone}`}>
-                {Math.round(perfStats.fps)} FPS
-              </span>
-            </div>
-            <PerfReadout label="Frame" value={`${perfStats.frameMs.toFixed(1)}ms`} />
-            <PerfReadout label="Update" value={`${perfStats.updateMs.toFixed(1)}ms`} />
-            <PerfReadout label="Render" value={`${perfStats.renderMs.toFixed(1)}ms`} />
-            <PerfReadout label="Objects" value={formatCompactCount(perfStats.objects)} />
-            <PerfReadout label="Memory" value={perfStats.memoryMb === null ? 'n/a' : `${perfStats.memoryMb.toFixed(0)}MB`} />
-          </div>
-        ) : null}
       </div>
     </div>
   );

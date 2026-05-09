@@ -4,6 +4,9 @@ import { formatCompactCount } from '../formatCompactCount';
 
 interface GameOverlayProps {
   state: GameState;
+  menuStage: 'launch' | 'pick_mode';
+  onContinueToModeSelect: () => void;
+  onBackToLaunch: () => void;
   onStart: () => void;
   onVersusIntroComplete: () => void;
   onRestart: () => void;
@@ -12,6 +15,9 @@ interface GameOverlayProps {
 
 export function GameOverlay({
   state,
+  menuStage,
+  onContinueToModeSelect,
+  onBackToLaunch,
   onStart,
   onVersusIntroComplete,
   onRestart,
@@ -20,9 +26,20 @@ export function GameOverlay({
   if (state.phase === 'playing' || state.phase === 'wave_complete') return null;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+    <div className="pointer-events-none absolute inset-0 z-20">
       {state.phase === 'menu' && (
-        <MenuScreen onStart={onStart} />
+        <div
+          className="pointer-events-auto absolute inset-0 flex items-center justify-center p-4"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <MenuScreen
+            stage={menuStage}
+            onContinueToModeSelect={onContinueToModeSelect}
+            onBackToLaunch={onBackToLaunch}
+            onStart={onStart}
+          />
+        </div>
       )}
       {state.phase === 'versus_intro' && (
         <VersusIntroScreen state={state} onComplete={onVersusIntroComplete} />
@@ -40,74 +57,127 @@ export function GameOverlay({
   );
 }
 
-function MenuScreen({ onStart }: { onStart: () => void }) {
+function MenuScreen({
+  stage,
+  onContinueToModeSelect,
+  onBackToLaunch,
+  onStart,
+}: {
+  stage: 'launch' | 'pick_mode';
+  onContinueToModeSelect: () => void;
+  onBackToLaunch: () => void;
+  onStart: () => void;
+}) {
   return (
-    <div className="pointer-events-auto text-center flex flex-col items-center gap-6 p-8">
-      {/* Darken center — canvas menu backdrop stays sharp (no backdrop-blur on pixel canvas). */}
+    <div
+      className={`relative pointer-events-auto flex flex-col items-center text-center ${
+        stage === 'pick_mode' ? 'gap-4 px-5 pb-5 pt-2 sm:px-8' : 'gap-6 p-8'
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-dark-900/40 via-dark-900/70 to-dark-900/90" />
 
-      <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Title */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-px bg-cyber-blue/60" />
-            <span className="text-xs text-cyber-blue/60 font-mono uppercase tracking-widest">2026 Edition</span>
-            <div className="w-8 h-px bg-cyber-blue/60" />
+      <div
+        className={`relative z-10 flex w-full max-w-2xl flex-col items-center ${
+          stage === 'launch' ? 'gap-6' : 'gap-4'
+        }`}
+      >
+        {stage === 'launch' ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="mb-1 flex items-center gap-2">
+              <div className="h-px w-8 bg-cyber-blue/60" />
+              <span className="font-mono text-xs uppercase tracking-widest text-cyber-blue/60">2026 Edition</span>
+              <div className="h-px w-8 bg-cyber-blue/60" />
+            </div>
+            <h1
+              className="text-6xl font-black uppercase tracking-tight text-white"
+              style={{
+                fontFamily: 'Orbitron, sans-serif',
+                textShadow: '0 0 40px rgba(0,212,255,0.6), 0 0 80px rgba(0,212,255,0.2)',
+              }}
+            >
+              DATA CENTER
+            </h1>
+            <h1
+              className="text-6xl font-black uppercase tracking-tight"
+              style={{
+                fontFamily: 'Orbitron, sans-serif',
+                color: '#00d4ff',
+                textShadow: '0 0 40px rgba(0,212,255,0.8), 0 0 80px rgba(0,212,255,0.4)',
+              }}
+            >
+              DOMINION
+            </h1>
           </div>
-          <h1
-            className="text-6xl font-black uppercase tracking-tight text-white"
-            style={{
-              fontFamily: 'Orbitron, sans-serif',
-              textShadow: '0 0 40px rgba(0,212,255,0.6), 0 0 80px rgba(0,212,255,0.2)',
-            }}
-          >
-            DATA CENTER
-          </h1>
-          <h1
-            className="text-6xl font-black uppercase tracking-tight"
-            style={{
-              fontFamily: 'Orbitron, sans-serif',
-              color: '#00d4ff',
-              textShadow: '0 0 40px rgba(0,212,255,0.8), 0 0 80px rgba(0,212,255,0.4)',
-            }}
-          >
-            DOMINION
-          </h1>
-        </div>
+        ) : null}
 
-        <p className="max-w-md text-base leading-relaxed text-white/45 font-mono">
-          Single player runs locally against an AI opponent. A short matchup reel plays before deployment.
-        </p>
+        {stage === 'launch' ? (
+          <>
+            <p className="max-w-md font-mono text-base leading-relaxed text-white/45">
+              Tower defense, mecha ops, and a contested lane to the enemy core. Boot the operations deck when you are ready.
+            </p>
+            <button
+              type="button"
+              onClick={onContinueToModeSelect}
+              className="group relative overflow-hidden rounded-2xl border border-cyber-green/45 bg-cyber-green/[0.12] px-14 py-5 font-mono text-xl font-black uppercase tracking-[0.2em] text-cyber-green transition-all hover:scale-[1.02] hover:border-cyber-green/70 hover:bg-cyber-green/[0.18] active:scale-[0.98]"
+              style={{ boxShadow: '0 0 36px rgba(0,255,136,0.22), 0 8px 28px rgba(0,0,0,0.45)' }}
+            >
+              <span className="relative z-10 drop-shadow-[0_0_12px_rgba(0,255,136,0.45)]">Launch</span>
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            </button>
+            <p className="font-mono text-xs text-white/30">Press [Space] or [Enter] to continue</p>
+          </>
+        ) : (
+          <>
+            <p
+              className="font-mono text-sm font-black uppercase tracking-[0.22em] text-cyber-blue/75 sm:text-base"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              Select deployment
+            </p>
+            <p className="max-w-md font-mono text-sm leading-relaxed text-white/45 sm:text-base">
+              Choose Local for an offline run against the AI defense kernel: quick uplink reel, then you’re live—place towers,
+              click-move your mecha, and send waves until one core goes dark.
+            </p>
 
-        <div className="grid w-full max-w-xl grid-cols-2 gap-4">
-          <button
-            onClick={onStart}
-            className="group flex min-h-36 flex-col items-start justify-between rounded-2xl border border-cyber-blue/45 bg-cyber-blue/[0.12] p-5 text-left transition-all hover:scale-[1.02] hover:bg-cyber-blue/[0.18] active:scale-[0.98]"
-            style={{ boxShadow: '0 0 30px rgba(0,212,255,0.16), 0 4px 20px rgba(0,0,0,0.3)' }}
-          >
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-cyber-blue/75">Local Mode</span>
-            <span className="font-mono text-2xl font-black uppercase tracking-wide text-white">Single Player</span>
-            <span className="font-mono text-xs leading-relaxed text-white/50">
-              Fight the AI, control start/pause/speed, build defenses, and attack the enemy data center.
-            </span>
-          </button>
+            <div className="grid w-full max-w-xl grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={onStart}
+                className="group flex min-h-36 flex-col items-start justify-between rounded-2xl border border-cyber-blue/45 bg-cyber-blue/[0.12] p-5 text-left transition-all hover:scale-[1.02] hover:bg-cyber-blue/[0.18] active:scale-[0.98]"
+                style={{ boxShadow: '0 0 30px rgba(0,212,255,0.16), 0 4px 20px rgba(0,0,0,0.3)' }}
+              >
+                <span className="font-mono text-xs font-bold uppercase tracking-widest text-cyber-blue/75">Local Mode</span>
+                <span className="font-mono text-2xl font-black uppercase tracking-wide text-white">Single Player</span>
+                <span className="font-mono text-xs leading-relaxed text-white/50">
+                  Fight the AI, control start/pause/speed, build defenses, and attack the enemy data center.
+                </span>
+              </button>
 
-          <button
-            type="button"
-            disabled
-            className="flex min-h-36 cursor-not-allowed flex-col items-start justify-between rounded-2xl border border-white/[0.08] bg-dark-700/45 p-5 text-left opacity-55"
-          >
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-white/35">Online Mode</span>
-            <span className="font-mono text-2xl font-black uppercase tracking-wide text-white/50">Multiplayer</span>
-            <span className="font-mono text-xs leading-relaxed text-white/35">
-              Coming soon. Controls will be match-authoritative when real players connect.
-            </span>
-          </button>
-        </div>
+              <button
+                type="button"
+                disabled
+                className="flex min-h-36 cursor-not-allowed flex-col items-start justify-between rounded-2xl border border-white/[0.08] bg-dark-700/45 p-5 text-left opacity-55"
+              >
+                <span className="font-mono text-xs font-bold uppercase tracking-widest text-white/35">Online Mode</span>
+                <span className="font-mono text-2xl font-black uppercase tracking-wide text-white/50">Multiplayer</span>
+                <span className="font-mono text-xs leading-relaxed text-white/35">
+                  Coming soon. Controls will be match-authoritative when real players connect.
+                </span>
+              </button>
+            </div>
 
-        <p className="font-mono text-xs text-white/30">
-          Press [Space] to choose Single Player
-        </p>
+            <div className="flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={onBackToLaunch}
+                className="min-h-11 rounded-xl bg-dark-800/90 px-6 py-2.5 font-mono text-sm font-bold uppercase tracking-[0.18em] text-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:bg-dark-700/95 hover:text-cyber-blue/95 active:scale-[0.98] sm:min-h-12 sm:px-8 sm:text-base"
+              >
+                ← Back
+              </button>
+              <p className="font-mono text-xs text-white/30">Press [Space] to choose Single Player · [Esc] back</p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
