@@ -1,9 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import type { GameState, TowerType } from './game/types';
-import { commandHeroMove, createInitialState, placeTower, sellTower, upgradeTower, startWave } from './game/engine';
+import type { AttackPackageId, GameState, TowerType } from './game/types';
+import { commandHeroMove, createInitialState, deployAttackPackage, placeTower, sellTower, upgradeTower, startWave } from './game/engine';
 import { renderGame } from './game/renderer';
-import { useGameLoop } from './hooks/useGameLoop';
-import { CELL_SIZE, GRID_COLS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, MAP_W, HUD_SLOT_H, FOOTER_H, FOOTER_GRID_MIN_W } from './game/constants';
+import { type PerfStats, useGameLoop } from './hooks/useGameLoop';
+import { CELL_SIZE, GRID_COLS, VIEWPORT_COLS, VIEWPORT_W, VIEWPORT_H, MAP_W, HUD_SLOT_H, FOOTER_H, FOOTER_GRID_MIN_W, isPlayerBuildableCell } from './game/constants';
 import { HUD } from './components/HUD';
 import { TowerInspector, TowerShopStrip } from './components/TowerShop';
 import { GameOverlay } from './components/GameOverlay';
@@ -19,10 +19,23 @@ const CHROME_FRAME_STYLE = {
   boxShadow: '0 0 60px rgba(0,212,255,0.08), 0 20px 60px rgba(0,0,0,0.6)',
 } as const;
 
+type MenuStage = 'launch' | 'pick_mode';
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>(createInitialState());
   const [snapshot, setSnapshot] = useState<GameState>(stateRef.current);
+  const [menuStage, setMenuStage] = useState<MenuStage>('launch');
+  const menuStageRef = useRef<MenuStage>('launch');
+  menuStageRef.current = menuStage;
+  const [perfStats, setPerfStats] = useState<PerfStats>({
+    fps: 60,
+    frameMs: 16.7,
+    updateMs: 0,
+    renderMs: 0,
+    objects: 0,
+    memoryMb: null,
+  });
   const hoveredCellRef = useRef<{ x: number; y: number } | null>(null);
 
   // Camera pan via mouse edge proximity
@@ -42,12 +55,21 @@ export default function App() {
     renderGame(ctx, state, hoveredCellRef.current, time);
   }, []);
 
-  const { start, stop } = useGameLoop(stateRef, setThrottledSnapshot, canvasRef, renderFn);
+  const { start, stop } = useGameLoop(stateRef, setThrottledSnapshot, canvasRef, renderFn, setPerfStats);
 
   useEffect(() => {
     start();
     return stop;
   }, [start, stop]);
+
+  const prevPhaseRef = useRef<GameState['phase'] | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = snapshot.phase;
+    if (snapshot.phase === 'menu' && prev !== undefined && prev !== 'menu') {
+      setMenuStage('launch');
+    }
+  }, [snapshot.phase]);
 
   // Edge-pan ticker — runs separately from game loop
   useEffect(() => {
@@ -62,8 +84,6 @@ export default function App() {
         const newCamX = Math.max(0, Math.min(MAX_CAM_X, state.cameraX + dir * PAN_SPEED * dt));
         if (newCamX !== state.cameraX) {
           stateRef.current = { ...state, cameraX: newCamX };
-          // force render snapshot so UI mini-map updates
-          setSnapshot({ ...stateRef.current });
         }
       }
       raf = requestAnimationFrame(tick);
@@ -79,9 +99,11 @@ export default function App() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
-      const newCamX = Math.max(0, Math.min(MAX_CAM_X, stateRef.current.cameraX + delta * 1.2));
-      stateRef.current = { ...stateRef.current, cameraX: newCamX };
-      setSnapshot({ ...stateRef.current });
+      const state = stateRef.current;
+      const newCamX = Math.max(0, Math.min(MAX_CAM_X, state.cameraX + delta * 1.2));
+      if (newCamX !== state.cameraX) {
+        stateRef.current = { ...state, cameraX: newCamX };
+      }
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
@@ -116,13 +138,13 @@ export default function App() {
     const point = getWorldPoint(e);
     const state = stateRef.current;
 
-    if (state.selectedTowerType && state.grid[y]?.[x] === 'empty') {
+    if (state.selectedTowerType && state.grid[y]?.[x] === 'empty' && isPlayerBuildableCell(x)) {
       stateRef.current = placeTower(state, x, y, state.selectedTowerType);
       setSnapshot({ ...stateRef.current });
       return;
     }
 
-    const tower = state.towers.find(t => t.gridX === x && t.gridY === y);
+    const tower = state.towers.find(t => t.owner === 'player' && t.gridX === x && t.gridY === y);
     if (tower) {
       stateRef.current = { ...stateRef.current, selectedTowerId: tower.id, selectedTowerType: null };
       setSnapshot({ ...stateRef.current });
@@ -175,6 +197,11 @@ export default function App() {
     setSnapshot({ ...stateRef.current });
   }, []);
 
+  const handleDeployAttack = useCallback((id: AttackPackageId) => {
+    stateRef.current = deployAttackPackage(stateRef.current, id);
+    setSnapshot({ ...stateRef.current });
+  }, []);
+
   const handleDeselect = useCallback(() => {
     stateRef.current = { ...stateRef.current, selectedTowerId: null, selectedTowerType: null };
     setSnapshot({ ...stateRef.current });
@@ -190,12 +217,18 @@ export default function App() {
     handleDeselect();
   }, [handleDeselect]);
 
-  const handleStartWave = useCallback(() => {
+  const handleStartMatch = useCallback(() => {
     const cur = stateRef.current;
     if (cur.phase === 'menu' || cur.phase === 'wave_complete' || cur.phase === 'playing') {
       stateRef.current = startWave({ ...cur, phase: cur.phase === 'menu' ? 'wave_complete' : cur.phase });
       setSnapshot({ ...stateRef.current });
     }
+  }, []);
+
+  const handleVersusIntroComplete = useCallback(() => {
+    if (stateRef.current.phase !== 'versus_intro') return;
+    stateRef.current = { ...stateRef.current, phase: 'wave_complete' };
+    setSnapshot({ ...stateRef.current });
   }, []);
 
   const handlePause = useCallback(() => {
@@ -210,12 +243,12 @@ export default function App() {
   }, []);
 
   const handleStart = useCallback(() => {
-    stateRef.current = { ...stateRef.current, phase: 'wave_complete' };
+    stateRef.current = { ...stateRef.current, gameMode: 'single_player', phase: 'versus_intro' };
     setSnapshot({ ...stateRef.current });
   }, []);
 
   const handleRestart = useCallback(() => {
-    stateRef.current = { ...createInitialState(), phase: 'wave_complete' };
+    stateRef.current = { ...createInitialState(), gameMode: 'single_player', phase: 'wave_complete' };
     setSnapshot({ ...stateRef.current });
   }, []);
 
@@ -228,26 +261,35 @@ export default function App() {
       const state = stateRef.current;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        if (state.phase === 'menu') handleStart();
-        else if (state.phase === 'wave_complete') handleStartWave();
+        if (state.phase === 'menu') {
+          if (menuStageRef.current === 'launch') setMenuStage('pick_mode');
+          else handleStart();
+        } else if (state.phase === 'wave_complete') handleStartMatch();
       }
       if (e.key === 'p' || e.key === 'P') {
         if (state.phase === 'playing' || state.phase === 'paused') handlePause();
       }
       if (e.key === 'Escape') {
+        if (state.phase === 'menu' && menuStageRef.current === 'pick_mode') {
+          e.preventDefault();
+          setMenuStage('launch');
+          return;
+        }
         stateRef.current = { ...stateRef.current, selectedTowerType: null, selectedTowerId: null };
         setSnapshot({ ...stateRef.current });
       }
-      // Arrow key / A/D pan
-      if (e.key === 'ArrowRight' || e.key === 'd') {
-        stateRef.current = { ...stateRef.current, cameraX: Math.min(MAX_CAM_X, stateRef.current.cameraX + CELL_SIZE * 3) };
-        setSnapshot({ ...stateRef.current });
+      // Arrow key / A/D pan (disabled during matchup reel)
+      if (state.phase !== 'versus_intro') {
+        if (e.key === 'ArrowRight' || e.key === 'd') {
+          stateRef.current = { ...stateRef.current, cameraX: Math.min(MAX_CAM_X, stateRef.current.cameraX + CELL_SIZE * 3) };
+          setSnapshot({ ...stateRef.current });
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'a') {
+          stateRef.current = { ...stateRef.current, cameraX: Math.max(0, stateRef.current.cameraX - CELL_SIZE * 3) };
+          setSnapshot({ ...stateRef.current });
+        }
       }
-      if (e.key === 'ArrowLeft' || e.key === 'a') {
-        stateRef.current = { ...stateRef.current, cameraX: Math.max(0, stateRef.current.cameraX - CELL_SIZE * 3) };
-        setSnapshot({ ...stateRef.current });
-      }
-      if (TOWER_KEYS[e.key] && state.phase !== 'game_over' && state.phase !== 'victory') {
+      if (TOWER_KEYS[e.key] && state.phase !== 'game_over' && state.phase !== 'victory' && state.phase !== 'versus_intro') {
         const type = TOWER_KEYS[e.key];
         stateRef.current = {
           ...stateRef.current,
@@ -259,9 +301,9 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleStart, handleStartWave, handlePause]);
+  }, [handleStart, handleStartMatch, handlePause]);
 
-  const isGameActive = snapshot.phase !== 'menu';
+  const isGameActive = snapshot.phase !== 'menu' && snapshot.phase !== 'versus_intro';
 
   const gameChromeRef = useRef<HTMLDivElement>(null);
   const [chromeFit, setChromeFit] = useState<{ scale: number; boxW: number; boxH: number }>({
@@ -335,15 +377,16 @@ export default function App() {
         >
         {/* Same fixed shell on menu & in-game so scale-to-fit and footprint match */}
         <div
-          className={`flex shrink-0 flex-col overflow-hidden ${
+          className={`relative z-30 flex shrink-0 flex-col ${
             !isGameActive ? 'border-b border-cyber-blue/20' : ''
-          } ${isGameActive ? 'bg-dark-800' : 'bg-dark-900'}`}
+          } ${isGameActive ? 'overflow-visible bg-dark-800' : 'overflow-hidden bg-dark-900'}`}
           style={{ height: HUD_SLOT_H }}
         >
           {isGameActive ? (
             <HUD
               state={snapshot}
-              onStartWave={handleStartWave}
+              perfStats={perfStats}
+              onStartMatch={handleStartMatch}
               onPause={handlePause}
               onSetSpeed={handleSetSpeed}
             />
@@ -354,7 +397,7 @@ export default function App() {
 
         {/* Main: canvas + shop — shrink-0 so flex parents never squash fixed canvas height */}
         <div
-          className="flex shrink-0 items-stretch"
+          className="relative z-10 flex shrink-0 items-stretch"
           style={{ height: VIEWPORT_H + FOOTER_H }}
           onClick={handleOutsideSelectionClick}
         >
@@ -374,9 +417,12 @@ export default function App() {
               />
               <GameOverlay
                 state={snapshot}
+                menuStage={menuStage}
+                onContinueToModeSelect={() => setMenuStage('pick_mode')}
+                onBackToLaunch={() => setMenuStage('launch')}
                 onStart={handleStart}
+                onVersusIntroComplete={handleVersusIntroComplete}
                 onRestart={handleRestart}
-                onStartWave={handleStartWave}
                 onResume={handlePause}
               />
             </div>
@@ -406,6 +452,7 @@ export default function App() {
                       onUpgrade={handleUpgrade}
                       onSell={handleSell}
                       onDeselect={handleDeselect}
+                      onDeployAttack={handleDeployAttack}
                     />
                   </div>
                 </div>
@@ -486,6 +533,10 @@ function HeroStatus({ state }: { state: GameState }) {
   const hero = state.hero;
   const dps = Math.round(hero.damage * hero.fireRate);
   const rangeCells = (hero.range / CELL_SIZE).toFixed(1);
+  const heroMaxHp = hero.maxHp || 10;
+  const heroHp = Math.max(0, Math.min(heroMaxHp, hero.hp ?? heroMaxHp));
+  const respawnTimer = Math.max(0, hero.respawnTimer ?? 0);
+  const hpPct = (heroHp / heroMaxHp) * 100;
   const controlHint =
     'Left-click: move mecha · Right-click: path · Shoots creeps automatically in weapon range';
 
@@ -507,8 +558,23 @@ function HeroStatus({ state }: { state: GameState }) {
           <div className="min-w-0 flex-1">
             <p className="truncate font-mono text-base font-bold leading-tight text-cyber-blue">Defense Mecha</p>
             <p className="mt-0.5 font-mono text-sm leading-snug text-white/55">
-              {hero.targetId ? 'Engaging a creep.' : 'Awaiting orders — click the map.'}
+              {!hero.isAlive
+                ? `Respawning in ${Math.ceil(respawnTimer / 1000)}s.`
+                : hero.targetId ? 'Engaging a creep.' : 'Awaiting orders — click the map.'}
             </p>
+          </div>
+        </div>
+
+        <div className="mb-2">
+          <div className="mb-1 flex items-center justify-between font-mono text-xs text-white/55">
+            <span>HP</span>
+            <span className="tabular-nums text-white/80">{Math.ceil(heroHp)}/{heroMaxHp}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full rounded-full ${hero.isAlive ? 'bg-cyber-green' : 'bg-red-300'}`}
+              style={{ width: `${hpPct}%` }}
+            />
           </div>
         </div>
 
@@ -519,18 +585,29 @@ function HeroStatus({ state }: { state: GameState }) {
                 hero.targetId ? 'bg-cyber-green/14 text-cyber-green' : 'bg-white/[0.07] text-white/45'
               }`}
             >
-              {hero.targetId ? 'Live' : 'Idle'}
+              {!hero.isAlive ? 'Down' : hero.targetId ? 'Live' : 'Idle'}
             </span>
             <span className="text-sm text-white/55">
               DPS{' '}
               <span className="font-bold tabular-nums text-cyber-blue">{formatCompactCount(dps)}</span>
             </span>
-            <span
-              className="ml-auto shrink-0 rounded bg-dark-700/70 px-2 py-0.5 text-sm font-bold tabular-nums text-white/80 ring-1 ring-white/10"
-              title={`Lifetime kills for this run: ${hero.kills}`}
-            >
-              Kill {formatCompactCount(hero.kills)}
-            </span>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-1.5 font-mono">
+          <div
+            className="rounded-md bg-dark-700/60 px-2 py-1 ring-1 ring-white/10"
+            title={`Lifetime kills for this run: ${hero.kills}`}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-white/40">Kills</p>
+            <p className="text-sm font-bold tabular-nums text-white/85">{formatCompactCount(hero.kills)}</p>
+          </div>
+          <div
+            className="rounded-md bg-red-500/10 px-2 py-1 ring-1 ring-red-300/20"
+            title={`Enemy hero takedowns for this run: ${hero.heroKills ?? 0}`}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-red-100/45">Hero Kills</p>
+            <p className="text-sm font-bold tabular-nums text-red-100">{formatCompactCount(hero.heroKills ?? 0)}</p>
           </div>
         </div>
 

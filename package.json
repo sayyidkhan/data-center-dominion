@@ -1,11 +1,16 @@
 {
-  "name": "tower-dominion",
+  "name": "data-center-dominion",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run generate:game-data",
     "dev": "vite",
+    "prebuild": "npm run generate:game-data",
+    "generate:game-data": "node scripts/generate-game-data.mjs",
     "build": "tsc && vite build",
+    "prestart": "npm run generate:game-data",
+    "start": "vite",
     "preview": "vite preview"
   },
   "dependencies": {

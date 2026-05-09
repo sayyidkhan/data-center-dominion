@@ -1,196 +1,90 @@
-import type { TowerDef, EnemyDef, TowerType, EnemyType } from './types';
+import type { AttackPackageDef, AttackPackageId, EnemyDef, EnemyType, TowerDef, TowerType } from './types';
+import combatData from '../data/combat.json';
+import economyData from '../data/economy.json';
+import enemiesData from '../data/enemies.json';
+import heroData from '../data/hero.json';
+import mapData from '../data/map.json';
+import pvpAttacksData from '../data/pvp-attacks.json';
+import towersData from '../data/towers.json';
+import wavesData from '../data/waves.json';
 
-export const CELL_SIZE = 36;
-export const GRID_COLS = 42;        // full map width
-export const GRID_ROWS = 14;
-export const VIEWPORT_COLS = 32;    // visible columns at once
-export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
-export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
-export const MAP_W = CELL_SIZE * GRID_COLS;
-export const MAP_H = CELL_SIZE * GRID_ROWS;
-
-/** Fixed HUD strip height — room for readable labels + stats + controls. */
-export const HUD_SLOT_H = 116;
-
-/** Bottom shop / mecha panel height (fixed shell; menu uses empty placeholder). */
-export const FOOTER_H = 292;
-
-/** Min width for footer `1fr 2fr 1fr` grid (hero | shop | briefing) before horizontal scroll. */
-export const FOOTER_GRID_MIN_W = 1120;
-
-// Legacy aliases kept for compatibility
-export const CANVAS_WIDTH = VIEWPORT_W;
-export const CANVAS_HEIGHT = VIEWPORT_H;
-
-export const STARTING_GOLD = 200;
-export const STARTING_LIVES = 20;
-export const MAX_WAVES = 15;
-
-export const HERO_START = {
-  x: CELL_SIZE * 5.5,
-  y: CELL_SIZE * 7,
+type HeroData = {
+  start: { gridX: number; gridY: number };
+  stats: {
+    speed: number;
+    damage: number;
+    range: number;
+    fireRate: number;
+    maxHp: number;
+    respawnMs: number;
+    healPerSecond: number;
+  };
+  projectile: {
+    speed: number;
+    color: string;
+    size: number;
+  };
 };
 
-export const HERO_STATS = {
-  speed: 145,
-  damage: 5,
-  range: 3.75,
-  fireRate: 4,
+type EconomyData = {
+  startingGold: number;
+  startingLives: number;
+  startingOffenseResource: number;
+  maxOffenseResource: number;
+  offenseResourcePerSecond: number;
+  aiAttackIntervalMs: number;
+  aiStartingBuildGold: number;
+  aiBuildGoldPerSecond: number;
+  aiBuildIntervalMs: number;
+  aiMaxTowers: number;
+  maxWaves: number;
+  sellRefundRate: number;
+  scorePerReward: number;
+  waveHpScalePerWave: number;
 };
 
-// Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
-// Path snakes then ends with a long straight horizontal run at row 7 into the bay.
-export const PATH_WAYPOINTS: [number, number][] = [
-  [41, 2],   // spawn: top-right
-  [36, 2],
-  [36, 5],
-  [30, 5],
-  [30, 11],
-  [24, 11],
-  [24, 2],
-  [18, 2],
-  [18, 8],
-  [12, 8],
-  [12, 4],
-  [8,  4],
-  [8,  7],   // join the straight road at row 7
-  [3,  7],   // straight run → intake bay
-];
+type MapData = {
+  cellSize: number;
+  gridCols: number;
+  gridRows: number;
+  viewportCols: number;
+  hudSlotHeight: number;
+  footerHeight: number;
+  footerGridMinWidth: number;
+  pathWaypoints: [number, number][];
+  attackPathWaypoints: [number, number][];
+  enemyTowerLoadout: Array<{
+    type: TowerType;
+    gridX: number;
+    gridY: number;
+    damage: number;
+    fireRate: number;
+  }>;
+};
 
-export const TOWER_DEFS: Record<TowerType, TowerDef> = {
-  cannon: {
-    type: 'cannon',
-    name: 'Cannon',
-    cost: 75,
-    damage: 45,
-    range: 3.5,
-    fireRate: 1.2,
-    color: '#4a7fa5',
-    accentColor: '#00d4ff',
-    description: 'Debuff tower. Cracks armor and exposes priority targets.',
-    projectileType: 'bullet',
-    splashRadius: 0,
-    slowAmount: 0,
-    slowDuration: 0,
-    upgradeCost: [100, 175],
-  },
+type CombatData = {
   laser: {
-    type: 'laser',
-    name: 'Laser',
-    cost: 120,
-    damage: 18,
-    range: 4,
-    fireRate: 8,
-    color: '#e040fb',
-    accentColor: '#ce93d8',
-    description: 'Rapid-fire laser. Low damage but high DPS.',
-    projectileType: 'laser_beam',
-    splashRadius: 0,
-    slowAmount: 0,
-    slowDuration: 0,
-    upgradeCost: [150, 250],
-  },
+    activeMs: number;
+    cooldownMs: number;
+  };
   frost: {
-    type: 'frost',
-    name: 'Frost',
-    cost: 100,
-    damage: 20,
-    range: 3,
-    fireRate: 0.6,
-    color: '#29b6f6',
-    accentColor: '#80deea',
-    description: 'Slows enemies. Essential for crowd control.',
-    projectileType: 'frost_bolt',
-    splashRadius: 2.25,
-    slowAmount: 0.4,
-    slowDuration: 2000,
-    upgradeCost: [130, 210],
-  },
+    freezeChance: number;
+    freezeMs: number;
+  };
   tesla: {
-    type: 'tesla',
-    name: 'Tesla',
-    cost: 150,
-    damage: 80,
-    range: 3,
-    fireRate: 0.8,
-    color: '#ffee58',
-    accentColor: '#fff176',
-    description: 'Chain lightning. Hits multiple enemies.',
-    projectileType: 'lightning',
-    splashRadius: 1.5,
-    slowAmount: 0,
-    slowDuration: 0,
-    upgradeCost: [200, 350],
-  },
-  missile: {
-    type: 'missile',
-    name: 'Missile',
-    cost: 200,
-    damage: 200,
-    range: 5,
-    fireRate: 0.4,
-    color: '#ff7043',
-    accentColor: '#ffab91',
-    description: 'Massive splash damage. Slow fire rate.',
-    projectileType: 'missile',
-    splashRadius: 2,
-    slowAmount: 0,
-    slowDuration: 0,
-    upgradeCost: [275, 450],
-  },
-};
-
-export const ENEMY_DEFS: Record<EnemyType, EnemyDef> = {
-  grunt: {
-    type: 'grunt',
-    hp: 80,
-    speed: 80,
-    reward: 10,
-    armor: 0,
-    color: '#ef5350',
-    size: 10,
-    isBoss: false,
-  },
-  speeder: {
-    type: 'speeder',
-    hp: 40,
-    speed: 160,
-    reward: 15,
-    armor: 0,
-    color: '#ff9800',
-    size: 8,
-    isBoss: false,
-  },
-  tank: {
-    type: 'tank',
-    hp: 400,
-    speed: 45,
-    reward: 30,
-    armor: 15,
-    color: '#78909c',
-    size: 16,
-    isBoss: false,
-  },
-  swarm: {
-    type: 'swarm',
-    hp: 25,
-    speed: 120,
-    reward: 5,
-    armor: 0,
-    color: '#ab47bc',
-    size: 7,
-    isBoss: false,
-  },
-  boss: {
-    type: 'boss',
-    hp: 2000,
-    speed: 55,
-    reward: 200,
-    armor: 30,
-    color: '#d32f2f',
-    size: 22,
-    isBoss: true,
-  },
+    chainRangeCells: number;
+  };
+  cannon: {
+    debuffChanceByLevel: number[];
+    debuffDurationByLevel: number[];
+    armorBreakByLevel: number[];
+    exposedBonusByLevel: number[];
+  };
+  upgrade: {
+    damageMultiplier: number;
+    rangeMultiplier: number;
+    fireRateMultiplier: number;
+  };
 };
 
 export interface WaveDef {
@@ -198,35 +92,85 @@ export interface WaveDef {
   goldBonus: number;
 }
 
-export const WAVE_DEFS: WaveDef[] = [
-  // Wave 1
-  { enemies: [{ type: 'grunt', count: 10, interval: 800 }], goldBonus: 25 },
-  // Wave 2
-  { enemies: [{ type: 'grunt', count: 12, interval: 700 }, { type: 'speeder', count: 4, interval: 1200 }], goldBonus: 30 },
-  // Wave 3
-  { enemies: [{ type: 'speeder', count: 8, interval: 600 }, { type: 'grunt', count: 8, interval: 800 }], goldBonus: 35 },
-  // Wave 4
-  { enemies: [{ type: 'tank', count: 3, interval: 2000 }, { type: 'grunt', count: 10, interval: 700 }], goldBonus: 40 },
-  // Wave 5
-  { enemies: [{ type: 'swarm', count: 20, interval: 300 }, { type: 'speeder', count: 6, interval: 600 }], goldBonus: 50 },
-  // Wave 6
-  { enemies: [{ type: 'tank', count: 5, interval: 1500 }, { type: 'speeder', count: 10, interval: 500 }], goldBonus: 55 },
-  // Wave 7
-  { enemies: [{ type: 'grunt', count: 20, interval: 500 }, { type: 'swarm', count: 15, interval: 350 }], goldBonus: 60 },
-  // Wave 8
-  { enemies: [{ type: 'tank', count: 6, interval: 1200 }, { type: 'swarm', count: 20, interval: 300 }], goldBonus: 70 },
-  // Wave 9 - mini boss
-  { enemies: [{ type: 'boss', count: 1, interval: 5000 }, { type: 'grunt', count: 15, interval: 600 }], goldBonus: 100 },
-  // Wave 10
-  { enemies: [{ type: 'speeder', count: 20, interval: 400 }, { type: 'tank', count: 5, interval: 1000 }], goldBonus: 80 },
-  // Wave 11
-  { enemies: [{ type: 'swarm', count: 30, interval: 250 }, { type: 'tank', count: 8, interval: 900 }], goldBonus: 90 },
-  // Wave 12
-  { enemies: [{ type: 'boss', count: 2, interval: 3000 }, { type: 'speeder', count: 15, interval: 400 }], goldBonus: 120 },
-  // Wave 13
-  { enemies: [{ type: 'grunt', count: 25, interval: 400 }, { type: 'tank', count: 10, interval: 800 }, { type: 'speeder', count: 10, interval: 400 }], goldBonus: 110 },
-  // Wave 14
-  { enemies: [{ type: 'swarm', count: 40, interval: 200 }, { type: 'boss', count: 2, interval: 4000 }], goldBonus: 150 },
-  // Wave 15 - final
-  { enemies: [{ type: 'boss', count: 4, interval: 2000 }, { type: 'tank', count: 15, interval: 700 }, { type: 'swarm', count: 30, interval: 200 }], goldBonus: 300 },
-];
+export const MAP_CONFIG = mapData as MapData;
+export const ECONOMY_CONFIG = economyData as EconomyData;
+export const HERO_CONFIG = heroData as HeroData;
+export const COMBAT_CONFIG = combatData as CombatData;
+
+export const CELL_SIZE = MAP_CONFIG.cellSize;
+export const GRID_COLS = MAP_CONFIG.gridCols;
+export const GRID_ROWS = MAP_CONFIG.gridRows;
+export const VIEWPORT_COLS = MAP_CONFIG.viewportCols;
+export const VIEWPORT_W = CELL_SIZE * VIEWPORT_COLS;
+export const VIEWPORT_H = CELL_SIZE * GRID_ROWS;
+export const MAP_W = CELL_SIZE * GRID_COLS;
+export const MAP_H = CELL_SIZE * GRID_ROWS;
+export const PLAYER_BUILD_MIN_COL = 0;
+export const PLAYER_BUILD_MAX_COL = Math.floor((GRID_COLS * 2) / 3) - 1;
+export const ENEMY_BUILD_MIN_COL = Math.floor(GRID_COLS / 3);
+export const ENEMY_BUILD_MAX_COL = GRID_COLS - 1;
+export const isPlayerBuildableCell = (gridX: number) =>
+  gridX >= PLAYER_BUILD_MIN_COL && gridX <= PLAYER_BUILD_MAX_COL;
+export const isEnemyBuildableCell = (gridX: number) =>
+  gridX >= ENEMY_BUILD_MIN_COL && gridX <= ENEMY_BUILD_MAX_COL;
+
+/** Fixed HUD strip height — room for readable labels + stats + controls. */
+export const HUD_SLOT_H = MAP_CONFIG.hudSlotHeight;
+
+/** Bottom shop / mecha panel height (fixed shell; menu uses empty placeholder). */
+export const FOOTER_H = MAP_CONFIG.footerHeight;
+
+/** Min width for footer `1fr 2fr 1fr` grid (hero | shop | briefing) before horizontal scroll. */
+export const FOOTER_GRID_MIN_W = MAP_CONFIG.footerGridMinWidth;
+
+// Legacy aliases kept for compatibility
+export const CANVAS_WIDTH = VIEWPORT_W;
+export const CANVAS_HEIGHT = VIEWPORT_H;
+
+export const STARTING_GOLD = ECONOMY_CONFIG.startingGold;
+export const STARTING_LIVES = ECONOMY_CONFIG.startingLives;
+export const STARTING_OFFENSE_RESOURCE = ECONOMY_CONFIG.startingOffenseResource;
+export const MAX_OFFENSE_RESOURCE = ECONOMY_CONFIG.maxOffenseResource;
+export const OFFENSE_RESOURCE_PER_SECOND = ECONOMY_CONFIG.offenseResourcePerSecond;
+export const AI_ATTACK_INTERVAL_MS = ECONOMY_CONFIG.aiAttackIntervalMs;
+export const AI_STARTING_BUILD_GOLD = ECONOMY_CONFIG.aiStartingBuildGold;
+export const AI_BUILD_GOLD_PER_SECOND = ECONOMY_CONFIG.aiBuildGoldPerSecond;
+export const AI_BUILD_INTERVAL_MS = ECONOMY_CONFIG.aiBuildIntervalMs;
+export const AI_MAX_TOWERS = ECONOMY_CONFIG.aiMaxTowers;
+export const MAX_WAVES = ECONOMY_CONFIG.maxWaves;
+export const SELL_REFUND_RATE = ECONOMY_CONFIG.sellRefundRate;
+export const SCORE_PER_REWARD = ECONOMY_CONFIG.scorePerReward;
+export const WAVE_HP_SCALE_PER_WAVE = ECONOMY_CONFIG.waveHpScalePerWave;
+
+export const HERO_START = {
+  x: CELL_SIZE * HERO_CONFIG.start.gridX,
+  y: CELL_SIZE * HERO_CONFIG.start.gridY,
+};
+
+export const HERO_STATS = HERO_CONFIG.stats;
+export const HERO_PROJECTILE = HERO_CONFIG.projectile;
+export const ENEMY_TOWER_LOADOUT = MAP_CONFIG.enemyTowerLoadout;
+
+// Data center is flush to the LEFT edge, rotated sideways with intake bay facing RIGHT.
+// Path snakes then ends with a long straight horizontal run at row 7 into the bay.
+export const PATH_WAYPOINTS = MAP_CONFIG.pathWaypoints;
+export const ATTACK_PATH_WAYPOINTS = MAP_CONFIG.attackPathWaypoints;
+
+export const TOWER_DEFS = towersData as Record<TowerType, TowerDef>;
+export const ENEMY_DEFS = enemiesData as Record<EnemyType, EnemyDef>;
+export const WAVE_DEFS = wavesData as WaveDef[];
+export const ATTACK_PACKAGE_DEFS = pvpAttacksData as Record<AttackPackageId, AttackPackageDef>;
+
+export const LASER_ACTIVE_MS = COMBAT_CONFIG.laser.activeMs;
+export const LASER_COOLDOWN_MS = COMBAT_CONFIG.laser.cooldownMs;
+export const LASER_CYCLE_MS = LASER_ACTIVE_MS + LASER_COOLDOWN_MS;
+export const FROST_FREEZE_CHANCE = COMBAT_CONFIG.frost.freezeChance;
+export const FROST_FREEZE_MS = COMBAT_CONFIG.frost.freezeMs;
+export const TESLA_CHAIN_RANGE = COMBAT_CONFIG.tesla.chainRangeCells * CELL_SIZE;
+export const CANNON_DEBUFF_CHANCE = COMBAT_CONFIG.cannon.debuffChanceByLevel;
+export const CANNON_DEBUFF_DURATION = COMBAT_CONFIG.cannon.debuffDurationByLevel;
+export const CANNON_ARMOR_BREAK = COMBAT_CONFIG.cannon.armorBreakByLevel;
+export const CANNON_EXPOSED_BONUS = COMBAT_CONFIG.cannon.exposedBonusByLevel;
+export const UPGRADE_DAMAGE_MULTIPLIER = COMBAT_CONFIG.upgrade.damageMultiplier;
+export const UPGRADE_RANGE_MULTIPLIER = COMBAT_CONFIG.upgrade.rangeMultiplier;
+export const UPGRADE_FIRE_RATE_MULTIPLIER = COMBAT_CONFIG.upgrade.fireRateMultiplier;
